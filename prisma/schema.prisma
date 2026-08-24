@@ -1,0 +1,379 @@
+// Prisma schema for Portal Vendas - Marketplace Integration
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+  previewFeatures = ["nativeDistinctCountBugFix"]
+}
+
+// ============================================================================
+// PRODUCTS & INVENTORY
+// ============================================================================
+
+model Product {
+  id              String   @id @default(cuid())
+  vendorId        String
+  title           String
+  description     String
+  price           Float
+  cost            Float?
+  images          Json     @default("[]") // Array of image URLs
+  categoryId      String
+  attributes      Json     @default("{}") // Key-value pairs
+  sku             String
+  barcode         String?
+  weight          Float?
+  dimensions      Json?    // { length, width, height }
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  marketplaceProducts MarketplaceProduct[]
+  inventory           Inventory?
+  orderItems          OrderItem[]
+  syncLogs            ProductSyncLog[]
+
+  @@index([vendorId])
+  @@index([sku])
+  @@index([createdAt])
+}
+
+model MarketplaceProduct {
+  id                      String   @id @default(cuid())
+  remoteId                String
+  marketplace             String   // 'shopee' or 'mercadolivre'
+  vendorId                String
+  productId               String
+  title                   String
+  description             String
+  price                   Float
+  originalPrice           Float?
+  images                  Json     @default("[]")
+  categoryId              String
+  marketplaceCategoryId   String
+  attributes              Json     @default("{}")
+  status                  String   @default("active") // active, inactive, delisted
+  lastSyncedAt            DateTime
+  lastSyncedHash          String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  // Relations
+  product                 Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([remoteId, marketplace, vendorId])
+  @@index([vendorId])
+  @@index([productId])
+  @@index([marketplace])
+  @@index([createdAt])
+}
+
+model Inventory {
+  id                    String   @id @default(cuid())
+  productId             String   @unique
+  vendorId              String
+  totalQuantity         Int      @default(0)
+  availableQuantity     Int      @default(0)
+  reservedQuantity      Int      @default(0)
+  shopeeQuantity        Int      @default(0)
+  mercadolivreQuantity  Int      @default(0)
+  lastSyncedAt          DateTime
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Relations
+  product               Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@index([lastSyncedAt])
+}
+
+// ============================================================================
+// MARKETPLACE CREDENTIALS & CONFIGURATION
+// ============================================================================
+
+model MarketplaceAuth {
+  id                String   @id @default(cuid())
+  vendorId          String
+  marketplace       String
+  encryptedAccessToken String
+  encryptedRefreshToken String?
+  accessTokenIv     String
+  accessTokenSalt   String
+  accessTokenAuthTag String
+  expiresAt         DateTime?
+  tokenType         String   @default("Bearer")
+  scope             Json?    @default("[]")
+  isValid           Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([vendorId, marketplace])
+  @@index([vendorId])
+  @@index([marketplace])
+  @@index([expiresAt])
+}
+
+model MarketplaceConfig {
+  id                String   @id @default(cuid())
+  vendorId          String
+  marketplace       String
+  isActive          Boolean  @default(true)
+  autoSync          Boolean  @default(true)
+  syncFrequency     Int      @default(300000) // 5 minutes in ms
+  conflictStrategy  String   @default("latest") // latest, local-priority, remote-priority, inventory-min
+  maxRetries        Int      @default(5)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([vendorId, marketplace])
+  @@index([vendorId])
+}
+
+// ============================================================================
+// ORDERS & ORDER ITEMS
+// ============================================================================
+
+model Order {
+  id                      String   @id @default(cuid())
+  vendorId                String
+  remoteId                String
+  marketplace             String
+  status                  String   // pending, processing, shipped, delivered, cancelled, returned, disputed
+  totalPrice              Float
+  subtotal                Float
+  shippingCost            Float
+  tax                     Float
+  discountAmount          Float?
+  customerName            String
+  customerEmail           String
+  customerPhone           String?
+  customerDocument        String?
+  shippingAddress         Json     // { street, number, complement, neighborhood, city, state, zipCode, country }
+  billingAddress          Json?
+  paymentMethod           String?
+  trackingNumber          String?
+  estimatedDeliveryDate   DateTime?
+  actualDeliveryDate      DateTime?
+  notes                   String?
+  isViewed                Boolean  @default(false)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  syncedAt                DateTime @updatedAt
+
+  // Relations
+  items                   OrderItem[]
+  syncLogs                OrderSyncLog[]
+
+  @@unique([remoteId, marketplace, vendorId])
+  @@index([vendorId])
+  @@index([marketplace])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id              String   @id @default(cuid())
+  orderId         String
+  productId       String?
+  remoteProductId String
+  title           String
+  sku             String
+  quantity        Int
+  unitPrice       Float
+  totalPrice      Float
+  attributes      Json?    @default("{}")
+  createdAt       DateTime @default(now())
+
+  // Relations
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product         Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+// ============================================================================
+// SYNC LOGS & AUDIT
+// ============================================================================
+
+model ProductSyncLog {
+  id              String   @id @default(cuid())
+  vendorId        String
+  productId       String
+  marketplace     String
+  operation       String   // create, update, delete, fetch
+  status          String   // success, failure
+  result          Json     // { success, remoteId, timestamp, error, warnings }
+  errorDetails    Json?
+  duration        Int      // in milliseconds
+  attemptNumber   Int      @default(1)
+  createdAt       DateTime @default(now())
+
+  // Relations
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@index([productId])
+  @@index([marketplace])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderSyncLog {
+  id              String   @id @default(cuid())
+  vendorId        String
+  orderId         String
+  marketplace     String
+  operation       String   // capture, status-update, fetch
+  status          String   // success, failure
+  errorDetails    Json?
+  duration        Int
+  attemptNumber   Int      @default(1)
+  createdAt       DateTime @default(now())
+
+  // Relations
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@index([orderId])
+  @@index([marketplace])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ConflictLog {
+  id              String   @id @default(cuid())
+  vendorId        String
+  entityId        String
+  entityType      String   // product, order, inventory
+  marketplace     String
+  field           String
+  localValue      String
+  remoteValue     String
+  strategy        String   // latest, local-priority, remote-priority, inventory-min
+  resolution      String   // local, remote, manual, auto
+  resolvedValue   String?
+  createdAt       DateTime @default(now())
+  resolvedAt      DateTime?
+  resolvedBy      String?
+
+  @@index([vendorId])
+  @@index([entityId])
+  @@index([marketplace])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// WEBHOOKS & EVENTS
+// ============================================================================
+
+model WebhookDelivery {
+  id                String   @id @default(cuid())
+  vendorId          String
+  marketplace       String
+  webhookId         String
+  event             String
+  payload           Json
+  signature         String
+  status            String   // delivered, failed, pending
+  deliveryAttempt   Int      @default(1)
+  lastAttemptAt     DateTime?
+  nextRetryAt       DateTime?
+  processingError   String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([webhookId, marketplace, vendorId])
+  @@index([vendorId])
+  @@index([marketplace])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model SyncEvent {
+  id              String   @id @default(cuid())
+  type            String   // product, inventory, order, status
+  marketplace     String?
+  vendorId        String
+  entityId        String
+  entityType      String
+  operation       String   // create, update, delete
+  status          String   // pending, processing, completed, failed
+  retryCount      Int      @default(0)
+  maxRetries      Int      @default(5)
+  error           String?
+  createdAt       DateTime @default(now())
+  startedAt       DateTime?
+  completedAt     DateTime?
+
+  @@index([vendorId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model DLQJob {
+  id              String   @id @default(cuid())
+  originalJobId   String
+  queue           String
+  vendorId        String
+  data            Json
+  error           String
+  errorStack      String?
+  failureCount    Int      @default(1)
+  lastFailureAt   DateTime
+  createdAt       DateTime @default(now())
+
+  @@index([queue])
+  @@index([vendorId])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// ERROR & AUDIT LOGS
+// ============================================================================
+
+model ErrorLog {
+  id              String   @id @default(cuid())
+  vendorId        String
+  marketplace     String?
+  classification  String
+  message         String
+  stack           String?
+  context         Json     @default("{}")
+  recoverable     Boolean
+  notified        Boolean  @default(false)
+  alertedAt       DateTime?
+  resolvedAt      DateTime?
+  resolution      String?
+  createdAt       DateTime @default(now())
+
+  @@index([vendorId])
+  @@index([classification])
+  @@index([createdAt])
+}
+
+model SyncMetrics {
+  id              String   @id @default(cuid())
+  vendorId        String
+  marketplace     String
+  date            DateTime
+  totalSyncs      Int
+  successfulSyncs Int
+  failedSyncs     Int
+  averageDuration Float
+  maxDuration     Int
+  minDuration     Int
+  productsSynced  Int
+  ordersCaptured  Int
+  conflictsDetected Int
+  createdAt       DateTime @default(now())
+
+  @@unique([vendorId, marketplace, date])
+  @@index([date])
+}

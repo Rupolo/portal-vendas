@@ -34,7 +34,7 @@ Plano de implementação completo para sincronização bidirecional de produtos,
 
 ### 2. Banco de Dados PostgreSQL
 
-- [ ] 2.1 Criar schema PostgreSQL com todas as tabelas
+- [x] 2.1 Criar schema PostgreSQL com todas as tabelas
   - Implementar schema completo (products, marketplace_products, orders, inventory, etc.)
   - Criar indexes para performance (vendor_id, marketplace, status, created_at)
   - Configurar constraints e foreign keys
@@ -46,7 +46,7 @@ Plano de implementação completo para sincronização bidirecional de produtos,
     - [x] Foreign keys validadas
     - [x] Schema testado com dados de exemplo
 
-- [ ] 2.2 Configurar Prisma ORM e migrations
+- [x] 2.2 Configurar Prisma ORM e migrations
   - Criar `schema.prisma` com todos os modelos
   - Implementar primeira migration
   - Testar geração de tipos TypeScript
@@ -60,7 +60,7 @@ Plano de implementação completo para sincronização bidirecional de produtos,
 
 ### 3. Sistema de Filas (BullMQ + Redis)
 
-- [ ] 3.1 Configurar Redis e BullMQ
+- [x] 3.1 Configurar Redis e BullMQ
   - Instalar e conectar ao Redis (local ou Docker)
   - Criar factory de filas (`src/lib/queue.ts`)
   - Implementar 5 filas: productSync, inventorySync, orderSync, webhookProcessing, errorRecovery
@@ -70,34 +70,34 @@ Plano de implementação completo para sincronização bidirecional de produtos,
   - _Acceptance Criteria:_
     - [x] Redis conectando com sucesso
     - [x] Todas as 5 filas criadas
-    - [ ] Backoff exponencial configurado
-    - [ ] Health check para Redis implementado
+    - [x] Backoff exponencial configurado
+    - [x] Health check para Redis implementado
 
-- [ ] 3.2 Configurar workers e listeners de fila
+- [x] 3.2 Configurar workers e listeners de fila
   - Criar processadores para cada fila
   - Implementar event listeners (completed, failed, stalled)
   - Adicionar logging estruturado para eventos de fila
   - _Requirements: 1, 2, 4, 6, 10_
   - _Effort: 2 horas_
   - _Acceptance Criteria:_
-    - [ ] Processadores criados para cada fila
-    - [ ] Event listeners funcionando
-    - [ ] Logs estruturados para cada evento
-    - [ ] Métricas de fila coletadas
+    - [x] Processadores criados para cada fila
+    - [x] Event listeners funcionando
+    - [x] Logs estruturados para cada evento
+    - [x] Métricas de fila coletadas
 
 ### 4. Sistema de Cache (Redis)
 
-- [ ] 4.1 Implementar camada de cache com Redis
+- [x] 4.1 Implementar camada de cache com Redis
   - Criar helper de cache (`src/lib/cache.ts`)
   - Implementar TTLs para: schemas (5min), produtos (1min), inventário (30s), pedidos (2min)
   - Criar funções: get, set, invalidate, batch operations
   - _Requirements: 12_
   - _Effort: 1.5 horas_
   - _Acceptance Criteria:_
-    - [ ] Helper de cache criado
-    - [ ] TTLs definidos conforme design
-    - [ ] Invalidação de cache ao atualizar dados
-    - [ ] Teste de hit/miss rate
+    - [x] Helper de cache criado
+    - [x] TTLs definidos conforme design
+    - [x] Invalidação de cache ao atualizar dados
+    - [x] Teste de hit/miss rate
 
 - [ ] 4.2 Configurar cache de schemas de marketplaces
   - Cachear respostas de listagem de categorias/atributos do Shopee e ML

@@ -1,15 +1,27 @@
 /**
  * GET /api/health
- * Health check endpoint for monitoring
+ * Comprehensive health check endpoint for monitoring all infrastructure components
+ * 
+ * Returns:
+ * - 200: All systems healthy
+ * - 503: One or more systems unhealthy
+ * 
+ * Query params:
+ * - ?verbose=true - Include detailed component information
+ * - ?simple=true - Return minimal health status only
  */
 
-import { NextResponse } from 'next/server';
-import { checkRedisHealth, getQueueStats } from '@/lib/queue';
-import { QUEUE_NAMES } from '@/lib/queue';
+import { NextResponse, NextRequest } from 'next/server';
+import { performHealthCheck, logHealthReport, HealthStatus } from '@/lib/health-check';
 import { redis } from '@/lib/redis';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Parse query parameters
+    const searchParams = request.nextUrl.searchParams;
+    const verbose = searchParams.get('verbose') === 'true';
+    const simple = searchParams.get('simple') === 'true';
+
     // Ensure Redis is connected on first health check
     if (!redis.isConnected && !redis.isConnecting) {
       try {
@@ -19,40 +31,39 @@ export async function GET() {
       }
     }
 
-    // Check Redis connection
-    const redisHealthy = await checkRedisHealth();
+    // Perform comprehensive health check
+    const healthReport = await performHealthCheck();
 
-    // Get queue statistics
-    const queueStats = {
-      productSync: await getQueueStats(QUEUE_NAMES.PRODUCT_SYNC),
-      inventorySync: await getQueueStats(QUEUE_NAMES.INVENTORY_SYNC),
-      orderSync: await getQueueStats(QUEUE_NAMES.ORDER_SYNC),
-      webhookProcessing: await getQueueStats(QUEUE_NAMES.WEBHOOK_PROCESSING),
-      errorRecovery: await getQueueStats(QUEUE_NAMES.ERROR_RECOVERY),
-    };
+    // Determine HTTP status code
+    const statusCode =
+      healthReport.status === HealthStatus.HEALTHY ? 200 :
+      healthReport.status === HealthStatus.DEGRADED ? 503 :
+      503;
 
-    const status = redisHealthy ? 'healthy' : 'degraded';
-    const statusCode = redisHealthy ? 200 : 503;
+    // Log health report in verbose mode
+    if (verbose) {
+      logHealthReport(healthReport);
+    }
 
-    return NextResponse.json(
-      {
-        status,
-        timestamp: new Date(),
-        checks: {
-          redis: redisHealthy ? 'ok' : 'failed',
-          redisConnected: redis.isConnected,
-          queues: 'ok',
+    // Return simple response if requested
+    if (simple) {
+      return NextResponse.json(
+        {
+          status: healthReport.status,
+          timestamp: healthReport.timestamp,
         },
-        queues: queueStats,
-      },
-      { status: statusCode }
-    );
+        { status: statusCode }
+      );
+    }
+
+    // Return full health report
+    return NextResponse.json(healthReport, { status: statusCode });
   } catch (error) {
     console.error('[Health] Error checking health:', error);
 
     return NextResponse.json(
       {
-        status: 'unhealthy',
+        status: HealthStatus.UNHEALTHY,
         timestamp: new Date(),
         error: error instanceof Error ? error.message : 'Unknown error',
       },

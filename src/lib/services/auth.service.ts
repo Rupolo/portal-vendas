@@ -7,6 +7,7 @@
 import crypto from 'crypto';
 import { config } from '../config';
 import type { MarketplaceType } from '../types/marketplace.types';
+import { encryptData, decryptData, type EncryptedData } from '../services/encryption';
 
 export interface MarketplaceCredentials {
   vendorId: string;
@@ -119,9 +120,9 @@ export class AuthService {
         throw new Error('Invalid access token');
       }
 
-      // Encrypt tokens
-      const encryptedAccessToken = this.encryptToken(accessToken);
-      const encryptedRefreshToken = refreshToken ? this.encryptToken(refreshToken) : null;
+      // Encrypt tokens using the service-level encryption
+      const encryptedAccessToken = encryptData(accessToken);
+      const encryptedRefreshToken = refreshToken ? encryptData(refreshToken) : null;
 
       // TODO: Store in database via Prisma
       // This is a placeholder - actual storage would use database

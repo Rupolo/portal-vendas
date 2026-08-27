@@ -40,12 +40,6 @@ describe('MarketplaceSchemaService', () => {
     
     // Reset mocks
     vi.clearAllMocks();
-    
-    // Setup default mock implementations
-    (cacheModule.getCached as any).mockResolvedValue(null);
-    (cacheModule.setCached as any).mockResolvedValue(undefined);
-    (cacheModule.invalidateCache as any).mockResolvedValue(undefined);
-    (cacheModule.invalidateByPattern as any).mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -259,52 +253,71 @@ describe('MarketplaceSchemaService', () => {
 
   describe('Automatic Refresh on Expiration', () => {
     it('should auto-refresh expired schema', async () => {
+      const now = new Date();
       const expiredSchema = {
         type: 'categories' as const,
         marketplace: 'shopee' as const,
         data: [{ id: '1', name: 'Old' }],
-        fetchedAt: new Date(),
-        expiresAt: new Date(Date.now() - 1000), // Already expired
+        fetchedAt: new Date(now.getTime() - 10000), // Expired 10s ago
+        expiresAt: new Date(now.getTime() - 5000), // Expired 5s ago
+        version: new Date(now.getTime() - 10000).toISOString(),
+      };
+
+      const newSchema = {
+        type: 'categories' as const,
+        marketplace: 'shopee' as const,
+        data: [{ id: '1', name: 'New' }],
+        fetchedAt: new Date(now.getTime() + 5000), // Fresh
+        expiresAt: new Date(now.getTime() + 305000), // 5 minutes from now
         version: new Date().toISOString(),
       };
 
-      (cacheModule.getCached as any)
-        .mockResolvedValueOnce(expiredSchema)
-        .mockResolvedValueOnce(null); // Second call for fetch
+      // Mock: return expired schema for cache lookup
+      (cacheModule.getCached as any).mockResolvedValue(expiredSchema);
+
+      // Mock fetchAndCacheSchemas to return new data
+      vi.spyOn(service, 'fetchAndCacheSchemas').mockResolvedValue(newSchema);
 
       const result = await service.getSchemaFromCache('shopee', 'categories');
 
-      // Should fetch new data
-      expect(result).toBeDefined();
-      expect(result?.fetchedAt.getTime()).toBeGreaterThan(expiredSchema.fetchedAt.getTime());
+      // Should fetch new data (not the expired schema)
+      expect(result).toEqual(newSchema);
     });
 
     it('should return stale cache if auto-refresh fails', async () => {
+      const now = new Date();
       const staleSchema = {
         type: 'categories' as const,
         marketplace: 'shopee' as const,
         data: [{ id: '1', name: 'Stale' }],
-        fetchedAt: new Date(),
-        expiresAt: new Date(Date.now() - 1000), // Expired
-        version: new Date().toISOString(),
+        fetchedAt: new Date(now.getTime() - 10000), // Expired 10s ago
+        expiresAt: new Date(now.getTime() - 5000), // Expired 5s ago
+        version: now.toISOString(),
       };
 
-      (cacheModule.getCached as any).mockResolvedValueOnce(staleSchema);
+      (cacheModule.getCached as any).mockResolvedValue(staleSchema);
+
+      // Make fetchAndCacheSchemas throw to simulate API failure
+      vi.spyOn(service, 'fetchAndCacheSchemas').mockRejectedValue(new Error('API Error'));
 
       const result = await service.getSchemaFromCache('shopee', 'categories');
 
-      // Should return stale cache
+      // Should return stale cache (graceful degradation)
       expect(result).toEqual(staleSchema);
+      
+      // Verify the mock was called
+      expect(cacheModule.getCached).toHaveBeenCalledTimes(1);
     });
 
     it('should respect autoRefresh=false flag', async () => {
+      const now = new Date();
       const expiredSchema = {
         type: 'categories' as const,
         marketplace: 'shopee' as const,
         data: [{ id: '1', name: 'Old' }],
-        fetchedAt: new Date(),
-        expiresAt: new Date(Date.now() - 1000), // Already expired
-        version: new Date().toISOString(),
+        fetchedAt: new Date(now.getTime() - 10000), // Expired 10s ago
+        expiresAt: new Date(now.getTime() - 5000), // Expired 5s ago
+        version: now.toISOString(),
       };
 
       (cacheModule.getCached as any).mockResolvedValueOnce(expiredSchema);
@@ -313,6 +326,9 @@ describe('MarketplaceSchemaService', () => {
 
       // Should return null without attempting refresh
       expect(result).toBeNull();
+      
+      // Verify the mock was called
+      expect(cacheModule.getCached).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -326,24 +342,39 @@ describe('MarketplaceSchemaService', () => {
         type: 'categories' as const,
         marketplace: 'shopee' as const,
         data: [{ id: '1', name: 'Old' }],
-        fetchedAt: new Date(),
-        expiresAt: new Date(Date.now() + 60000),
+        fetchedAt: new Date(Date.now() - 1000),
+        expiresAt: new Date(Date.now() + 50000),
+        version: new Date(Date.now() - 1000).toISOString(),
+      };
+
+      const refreshedSchema = {
+        type: 'categories' as const,
+        marketplace: 'shopee' as const,
+        data: [{ id: '1', name: 'New' }],
+        fetchedAt: new Date(Date.now() + 1000),
+        expiresAt: new Date(Date.now() + 301000),
         version: new Date().toISOString(),
       };
 
+      // First get - returns cached schema
       (cacheModule.getCached as any).mockResolvedValueOnce(cachedSchema);
-
+      
       // First, get cached version
       const cached = await service.getSchemaFromCache('shopee', 'categories');
       expect(cached?.data[0].name).toBe('Old');
 
-      // Now refresh manually
+      // Now refresh manually - invalidate then fetch succeeds
       (cacheModule.invalidateCache as any).mockResolvedValueOnce(undefined);
-      (cacheModule.getCached as any).mockResolvedValueOnce(null);
+      (cacheModule.getCached as any)
+        .mockResolvedValueOnce(null)  // After invalidation, cache miss
+        .mockResolvedValueOnce(null); // During fetch, cache miss
+      
+      // Mock fetchAndCacheSchemas to return new data
+      vi.spyOn(service, 'fetchAndCacheSchemas').mockResolvedValueOnce(refreshedSchema);
 
       const refreshed = await service.refreshSchema('shopee', 'categories');
 
-      expect(refreshed).toBeDefined();
+      expect(refreshed).toEqual(refreshedSchema);
       expect(cacheModule.invalidateByPattern).toHaveBeenCalled();
     });
 
@@ -424,25 +455,28 @@ describe('MarketplaceSchemaService', () => {
 
   describe('Cache Statistics', () => {
     it('should track cache hits, misses, fetches, and invalidations', async () => {
-      const cachedSchema = {
+      // Cache hit scenario
+      const freshSchema = {
         type: 'categories' as const,
         marketplace: 'shopee' as const,
         data: [{ id: '1' }],
-        fetchedAt: new Date(),
-        expiresAt: new Date(Date.now() + 60000),
-        version: new Date().toISOString(),
+        fetchedAt: new Date(Date.now() - 1000),
+        expiresAt: new Date(Date.now() + 50000),
+        version: new Date(Date.now() - 1000).toISOString(),
       };
 
       // Cache hit
-      (cacheModule.getCached as any).mockResolvedValueOnce(cachedSchema);
+      (cacheModule.getCached as any).mockResolvedValueOnce(freshSchema);
       await service.getSchemaFromCache('shopee', 'categories');
 
       // Cache miss
       (cacheModule.getCached as any).mockResolvedValueOnce(null);
       await service.getSchemaFromCache('mercadolivre', 'attributes');
 
-      // Fetch
-      (cacheModule.getCached as any).mockResolvedValueOnce(null);
+      // Fetch - cache miss, then fetch succeeds
+      (cacheModule.getCached as any)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null);
       await service.fetchAndCacheSchemas('shopee', 'attributes');
 
       // Invalidate
@@ -481,10 +515,12 @@ describe('MarketplaceSchemaService', () => {
 
   describe('Error Handling', () => {
     it('should handle cache retrieval errors gracefully', async () => {
+      // Make getCached throw an error
       (cacheModule.getCached as any).mockRejectedValueOnce(new Error('Redis connection failed'));
 
       const result = await service.getSchemaFromCache('shopee', 'categories');
 
+      // Should return null on error
       expect(result).toBeNull();
     });
 

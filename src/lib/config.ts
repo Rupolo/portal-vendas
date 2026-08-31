@@ -153,6 +153,32 @@ export const config = {
         removeOnComplete: false, // Keep for audit trail
       },
     },
+    orderRouting: {
+      name: 'orderRouting',
+      defaultJobOptions: {
+        attempts: 3, // Critical orders - try 3 times
+        backoff: {
+          type: 'exponential',
+          delay: 5000,
+        },
+        removeOnComplete: {
+          age: 86400, // Keep for 1 day for audit
+        },
+      },
+    },
+    providerNotification: {
+      name: 'providerNotification',
+      defaultJobOptions: {
+        attempts: 5, // Provider notifications need retries
+        backoff: {
+          type: 'exponential',
+          delay: 3000,
+        },
+        removeOnComplete: {
+          age: 3600, // Keep for 1 hour
+        },
+      },
+    },
     errorRecovery: {
       name: 'errorRecovery',
       defaultJobOptions: {

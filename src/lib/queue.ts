@@ -76,6 +76,8 @@ export const QUEUE_NAMES = {
   INVENTORY_SYNC: 'inventorySync',
   ORDER_SYNC: 'orderSync',
   WEBHOOK_PROCESSING: 'webhookProcessing',
+  ORDER_ROUTING: 'orderRouting',
+  PROVIDER_NOTIFICATION: 'providerNotification',
   ERROR_RECOVERY: 'errorRecovery',
 } as const;
 

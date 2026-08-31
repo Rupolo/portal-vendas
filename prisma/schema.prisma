@@ -7,12 +7,119 @@ datasource db {
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
-  previewFeatures = ["nativeDistinctCountBugFix"]
+  previewFeatures = ["nativeDistinct", "relationJoins"]
 }
 
 // ============================================================================
 // PRODUCTS & INVENTORY
 // ============================================================================
+
+// ============================================================================
+// DROPSHIPPING PROVIDER MAPPING
+// ============================================================================
+
+model Provider {
+  id                String   @id @default(cuid())
+  vendorId          String
+  name              String
+  description       String?
+  email             String
+  phone             String?
+  document          String?
+  address           Json?    // { street, number, complement, neighborhood, city, state, zipCode, country }
+  isActive          Boolean  @default(true)
+  isAvailable       Boolean  @default(false)
+  categories        Json     @default("[]") // Array of category IDs
+  responseTimeMinutes Int?   // Average response time in minutes
+  successRate       Float?   // Success rate percentage
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  providerProducts   ProviderProduct[]
+  providerCredentials ProviderCredential?
+  orderAssignments   OrderProviderAssignment[]
+
+  @@index([vendorId])
+  @@index([isActive, isAvailable])
+  @@index([createdAt])
+}
+
+model ProviderProduct {
+  id                  String   @id @default(cuid())
+  providerId          String
+  productId           String
+  providerSku         String
+  name                String
+  price               Float
+  availableQuantity   Int      @default(0)
+  syncStatus          String   @default("pending") // pending, synced, failed
+  lastSyncedAt        DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, productId])
+  @@index([providerId])
+  @@index([productId])
+  @@index([syncStatus])
+}
+
+model ProviderCredential {
+  id                  String   @id @default(cuid())
+  providerId          String   @unique
+  encryptedApiKey     String
+  apiKeyIv            String
+  apiKeySalt          String
+  apiKeyAuthTag       String
+  encryptedSecret     String?
+  secretIv            String?
+  secretSalt          String?
+  secretAuthTag       String?
+  endpointUrl         String   @default("")
+  webhookUrl          String?
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================================
+// DROPSHIPPING ORDER ROUTING
+// ============================================================================
+
+model OrderProviderAssignment {
+  id                  String   @id @default(cuid())
+  orderId             String
+  providerId          String
+  status              String   @default("pending") // pending, assigned, confirmed, shipped, delivered, failed, cancelled
+  assignedAt          DateTime @default(now())
+  confirmedAt         DateTime?
+  shippedAt           DateTime?
+  deliveredAt         DateTime?
+  trackingNumber      String?
+  providerResponse    Json?    // Raw response from provider
+  retryCount          Int      @default(0)
+  lastRetryAt         DateTime?
+  failureReason       String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([providerId])
+  @@index([status])
+  @@index([assignedAt])
+  @@index([createdAt])
+}
 
 model Product {
   id              String   @id @default(cuid())
@@ -37,6 +144,7 @@ model Product {
   inventory           Inventory?
   orderItems          OrderItem[]
   syncLogs            ProductSyncLog[]
+  providerProducts    ProviderProduct[]
 
   @@index([vendorId])
   @@index([sku])
@@ -169,6 +277,7 @@ model Order {
   // Relations
   items                   OrderItem[]
   syncLogs                OrderSyncLog[]
+  orderProviderAssignments OrderProviderAssignment[]
 
   @@unique([remoteId, marketplace, vendorId])
   @@index([vendorId])

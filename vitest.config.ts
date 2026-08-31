@@ -51,10 +51,12 @@ export default defineConfig({
     hookTimeout: 10000,
   },
 
-  // Module resolution
+  // Module resolution with tsconfig paths support
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': path.resolve(__dirname, 'src'),
     },
   },
 });
+
+// Enable tsconfig paths resolution for vitest

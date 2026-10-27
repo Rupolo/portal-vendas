@@ -16,6 +16,14 @@ export {
   type MarketplaceSchema,
 } from './marketplace-schema.service';
 export {
+  ProductSyncService,
+  productSyncService,
+  type SyncOptions,
+  type SyncResult,
+  type BatchSyncResult,
+  type MarketplaceProductResponse,
+} from './product-sync.service';
+export {
   ProviderService,
   providerService,
   type Provider,

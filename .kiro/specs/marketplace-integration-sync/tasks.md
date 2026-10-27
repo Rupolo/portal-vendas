@@ -128,7 +128,7 @@ edis, pg, prisma, @prisma/client
 
 ### 5. Gestão de Tokens de Autenticação e Provedores
 
-- [-] 5.1 Implementar vault seguro para armazenamento de tokens
+- [ ] 5.1 Implementar vault seguro para armazenamento de tokens
   - Criar serviço src/lib/services/auth.service.ts com métodos:
     - storeMarketplaceCredentials()
     - storeProviderCredentials()
@@ -168,13 +168,13 @@ etrieveAndDecrypt()
   - _Effort: 2 horas_
   - _Acceptance Criteria:_
     - [ ] 3 endpoints funcionando
-    - [~] Validação de credenciais
-    - [~] Erro tratado quando token inválido
-    - [~] Teste com OAuth2 Shopee e ML
+    - [ ] Validação de credenciais
+    - [ ] Erro tratado quando token inválido
+    - [ ] Teste com OAuth2 Shopee e ML
 
 ### 6. Validação de Webhooks e Roteamento
 
-- [~] 6.1 Implementar validação de assinatura de webhooks
+- [ ] 6.1 Implementar validação de assinatura de webhooks
   - Criar serviço src/lib/services/webhook-validator.service.ts
   - Implementar HMAC-SHA256 para Shopee
   - Implementar token validation para Mercado Livre
@@ -182,12 +182,12 @@ etrieveAndDecrypt()
   - _Requirements: 10, 3_
   - _Effort: 1.5 horas_
   - _Acceptance Criteria:_
-    - [~] Validação HMAC-SHA256 Shopee funcionando
-    - [~] Validação token ML funcionando
-    - [~] Timing-safe comparison implementada
-    - [~] Teste com payloads inválidos (rejeitados)
+    - [ ] Validação HMAC-SHA256 Shopee funcionando
+    - [ ] Validação token ML funcionando
+    - [ ] Timing-safe comparison implementada
+    - [ ] Teste com payloads inválidos (rejeitados)
 
-- [~] 6.2 Implementar idempotência em webhooks
+- [ ] 6.2 Implementar idempotência em webhooks
   - Adicionar campo webhook_delivery_id único
   - Verificar duplicatas antes de processar
   - Armazenar webhook_deliveries na DB
@@ -195,12 +195,12 @@ etrieveAndDecrypt()
   - _Requirements: 10, 4_
   - _Effort: 1.5 horas_
   - _Acceptance Criteria:_
-    - [~] Webhook ID checado antes de processar
-    - [~] Duplicatas rejeitadas
-    - [~] Deduplicação com Redis funcionando
-    - [~] Teste com mesmo webhook 3x
+    - [ ] Webhook ID checado antes de processar
+    - [ ] Duplicatas rejeitadas
+    - [ ] Deduplicação com Redis funcionando
+    - [ ] Teste com mesmo webhook 3x
 
-- [~] 6.3 Implementar rate limiting em webhooks
+- [ ] 6.3 Implementar rate limiting em webhooks
   - Limitar a 100 req/min por marketplace
   - Usar token bucket algorithm
   - Retornar 429 quando limite excedido
@@ -208,9 +208,9 @@ etrieveAndDecrypt()
   - _Requirements: 10, 12_
   - _Effort: 1 hora_
   - _Acceptance Criteria:_
-    - [~] Rate limiter criado
-    - [~] 429 retornado quando limite excedido
-    - [~] Backoff implementado
+    - [ ] Rate limiter criado
+    - [ ] 429 retornado quando limite excedido
+    - [ ] Backoff implementado
 
 ---
 
@@ -218,7 +218,7 @@ etrieveAndDecrypt()
 
 ### 7. Gestão de Provedores e Mapeamento de Produtos
 
-- [~] 7.1 Implementar ProviderService com métodos core
+- [x] 7.1 Implementar ProviderService com métodos core
   - Criar classe ProviderService com métodos:
     - ssignProductToProvider(productId, providerId, providerSku)
     - atchAssignProductsToProviders(products)
@@ -228,12 +228,12 @@ etrieveAndDecrypt()
   - _Requirements: 1, 5, 12_
   - _Effort: 3 horas_
   - _Acceptance Criteria:_
-    - [~] Todos os métodos implementados
-    - [~] Integração com queue funcionando
-    - [~] Logging estruturado
-    - [~] Teste com 100 produtos
+    - [x] Todos os métodos implementados
+    - [x] Integração com queue funcionando
+    - [x] Logging estruturado
+    - [x] Teste com 100 produtos
 
-- [~] 7.2 Implementar mapeamento produto-provedor
+- [x] 7.2 Implementar mapeamento produto-provedor
   - Criar endpoint POST /api/products/:id/assign-provider
   - Permitir vendedor escolher provedor para cada produto
   - Armazenar providerSku e informações de mapping
@@ -241,26 +241,26 @@ etrieveAndDecrypt()
   - _Requirements: 5_
   - _Effort: 2 horas_
   - _Acceptance Criteria:_
-    - [~] Endpoint funcionando
-    - [~] Mapping armazenado corretamente
+    - [x] Endpoint funcionando
+    - [x] Mapping armazenado corretamente
     - [ ] Validação de disponibilidade
-    - [~] Teste end-to-end
+    - [x] Teste end-to-end
 
-- [~] 7.3 Implementar sincronização de catálogo do provedor
+- [x] 7.3 Implementar sincronização de catálogo do provedor
   - Sincronizar produtos do provedor para o catálogo da loja
   - Mapear providerSku para productId local
   - Atualizar preços automaticamente (opcional)
   - _Requirements: 5, 11_
   - _Effort: 2 horas_
   - _Acceptance Criteria:_
-    - [~] Catálogo sincronizado
-    - [~] Mapping providerSku ↔ productId
-    - [~] Preços atualizados (opcional)
-    - [~] Teste com 500 produtos do provedor
+    - [x] Catálogo sincronizado
+    - [x] Mapping providerSku ↔ productId
+    - [x] Preços atualizados (opcional)
+    - [x] Teste com 500 produtos do provedor
 
 ### 8. Sync com Marketplaces (Product Mapping)
 
-- [~] 8.1 Implementar ProductSyncService com métodos core
+- [ ] 8.1 Implementar ProductSyncService com métodos core
   - Criar classe ProductSyncService com métodos:
     - syncProductToMarketplaces(product)
     - atchSyncProducts(products)
@@ -273,9 +273,9 @@ etrieveAndDecrypt()
     - [ ] Todos os métodos implementados
     - [ ] Integração com queue funcionando
     - [ ] Logging estruturado
-    - [~] Teste com 100 produtos (batch)
+    - [x] Teste com 100 produtos (batch)
 
-- [~] 8.2 Implementar sincronização de novo produto
+- [x] 8.2 Implementar sincronização de novo produto
   - Criar job para quando produto é criado
   - Enviar para todos os marketplaces configurados
   - Armazenar remoteId de cada marketplace
@@ -283,12 +283,12 @@ etrieveAndDecrypt()
   - _Requirements: 1_
   - _Effort: 2 horas_
   - _Acceptance Criteria:_
-    - [~] Job criado para novo produto
-    - [~] RemoteIds armazenados
-    - [~] Timestamp atualizado
-    - [~] Teste end-to-end (Portal → Shopee/ML)
+    - [x] Job criado para novo produto
+    - [x] RemoteIds armazenados
+    - [x] Timestamp atualizado
+    - [x] Teste end-to-end (Portal → Shopee/ML)
 
-- [~] 8.3 Implementar sincronização de atualização de produto
+- [x] 8.3 Implementar sincronização de atualização de produto
   - Detectar mudanças (título, preço, descrição, imagens)
   - Sincronizar apenas campos alterados quando possível
   - Aplicar rate limits do Shopee/ML
@@ -296,12 +296,12 @@ etrieveAndDecrypt()
   - _Requirements: 1, 12_
   - _Effort: 2.5 horas_
   - _Acceptance Criteria:_
-    - [~] Detecção de mudanças funcionando
-    - [~] Sincronização de mudanças funcionando
-    - [~] Rate limits respeitados
-    - [~] Teste com 1000 atualizações/min
+    - [x] Detecção de mudanças funcionando
+    - [x] Sincronização de mudanças funcionando
+    - [x] Rate limits respeitados
+    - [x] Teste com 1000 atualizações/min
 
-- [~] 8.4 Implementar deleção/desativação de produtos
+- [x] 8.4 Implementar deleção/desativação de produtos
   - Criar job para quando produto é deletado
   - Opção 1: Desativar anúncio (seguro)
   - Opção 2: Remover anúncio (se API permitir)
@@ -309,14 +309,14 @@ etrieveAndDecrypt()
   - _Requirements: 1_
   - _Effort: 1.5 horas_
   - _Acceptance Criteria:_
-    - [~] Deleção dispara sync
-    - [~] Anúncio desativado no marketplace
-    - [~] Mapping limpo
-    - [~] Teste de deleção funcional
+    - [x] Deleção dispara sync
+    - [x] Anúncio desativado no marketplace
+    - [x] Mapping limpo
+    - [x] Teste de deleção funcional
 
 ### 9. Sincronização de Metadados e Atributos
 
-- [~] 9.1 Sincronizar descrições e imagens
+- [x] 9.1 Sincronizar descrições e imagens
   - Implementar upload de múltiplas imagens
   - Formatar descrição HTML para cada marketplace
   - Otimizar imagens para web (compression)
@@ -324,12 +324,12 @@ etrieveAndDecrypt()
   - _Requirements: 7, 12_
   - _Effort: 2 horas_
   - _Acceptance Criteria:_
-    - [~] Múltiplas imagens carregadas
-    - [~] Descrição formatada corretamente
-    - [~] Imagens comprimidas
-    - [~] Teste com descrição de 10k chars
+    - [x] Múltiplas imagens carregadas
+    - [x] Descrição formatada corretamente
+    - [x] Imagens comprimidas
+    - [x] Teste com descrição de 10k chars
 
-- [~] 9.2 Sincronizar atributos específicos por marketplace
+- [x] 9.2 Sincronizar atributos específicos por marketplace
   - Implementar AttributeSyncService
   - Mapear atributos Portal → Shopee/ML
   - Validar atributos obrigatórios
@@ -337,10 +337,10 @@ etrieveAndDecrypt()
   - _Requirements: 7, 11_
   - _Effort: 2.5 horas_
   - _Acceptance Criteria:_
-    - [~] Atributos obrigatórios identificados
-    - [~] Validação funcionando
-    - [~] Valores padrão aplicados
-    - [~] Fallback manual permitido
+    - [x] Atributos obrigatórios identificados
+    - [x] Validação funcionando
+    - [x] Valores padrão aplicados
+    - [x] Fallback manual permitido
 
 ---
 
@@ -348,7 +348,7 @@ etrieveAndDecrypt()
 
 ### 10. Processamento de Pedidos (Sem Estoque)
 
-- [~] 10.1 Implementar OrderRoutingService (dropshipping core)
+- [ ] 10.1 Implementar OrderRoutingService (dropshipping core)
   - Criar classe OrderRoutingService com métodos:
     - 
 outeOrderToProvider(order)
@@ -361,23 +361,23 @@ otifyProviderOfOrder(order)
   - _Effort: 4 horas_
   - _Acceptance Criteria:_
     - [ ] Todos os métodos implementados
-    - [~] Roteamento automático funcionando
-    - [~] Validação de disponibilidade do provedor
-    - [~] Teste com 100 pedidos simultâneos
+    - [ ] Roteamento automático funcionando
+    - [ ] Validação de disponibilidade do provedor
+    - [ ] Teste com 100 pedidos simultâneos
 
-- [~] 10.2 Implementar rastreamento de status do pedido
+- [ ] 10.2 Implementar rastreamento de status do pedido
   - Criar tabela order_provider_assignments para rastrear roteamento
   - Registar timestamp de cada roteamento
   - Permitir re-roteamento se provedor indisponível
   - _Requirements: 4, 6_
   - _Effort: 2 horas_
   - _Acceptance Criteria:_
-    - [~] Tabela criada
-    - [~] Roteamento registrado
-    - [~] Re-roteamento funcional
-    - [~] Teste com re-roteamento
+    - [ ] Tabela criada
+    - [ ] Roteamento registrado
+    - [ ] Re-roteamento funcional
+    - [ ] Teste com re-roteamento
 
-- [~] 10.3 Implementar notificação do provedor
+- [ ] 10.3 Implementar notificação do provedor
   - Criar job para notificar provedor de novo pedido
   - Enviar dados do cliente (endereço de entrega)
   - Aguardar confirmação do provedor
@@ -385,26 +385,26 @@ otifyProviderOfOrder(order)
   - _Requirements: 4, 5_
   - _Effort: 2 horas_
   - _Acceptance Criteria:_
-    - [~] Job criado
-    - [~] Dados do cliente enviados
-    - [~] Confirmação recebida
-    - [~] Status atualizado
+    - [ ] Job criado
+    - [ ] Dados do cliente enviados
+    - [ ] Confirmação recebida
+    - [ ] Status atualizado
 
-- [~] 10.4 Implementar fallback para múltiplos provedores
+- [ ] 10.4 Implementar fallback para múltiplos provedores
   - Se provedor A indisponível, tentar provedor B
   - Configurar prioridade de provedores por categoria
   - Notificar vendedor se todos os provedores indisponíveis
   - _Requirements: 5, 6_
   - _Effort: 2 horas_
   - _Acceptance Criteria:_
-    - [~] Fallback funcionando
-    - [~] Prioridade configurável
-    - [~] Notificação enviada
-    - [~] Teste com 3 provedores
+    - [ ] Fallback funcionando
+    - [ ] Prioridade configurável
+    - [ ] Notificação enviada
+    - [ ] Teste com 3 provedores
 
 ### 11. Webhooks de Pedidos dos Marketplaces
 
-- [~] 11.1 Implementar webhook handler para Shopee
+- [ ] 11.1 Implementar webhook handler para Shopee
   - Endpoint /api/webhooks/shopee/order
   - Validar assinatura HMAC-SHA256
   - Extrair dados do pedido (produtos, cliente, endereço)
@@ -413,11 +413,11 @@ otifyProviderOfOrder(order)
   - _Effort: 2 horas_
   - _Acceptance Criteria:_
     - [ ] Endpoint funcionando
-    - [~] Assinatura validada
-    - [~] Roteamento disparado
-    - [~] Teste com payloads reais
+    - [ ] Assinatura validada
+    - [ ] Roteamento disparado
+    - [ ] Teste com payloads reais
 
-- [~] 11.2 Implementar webhook handler para Mercado Livre
+- [ ] 11.2 Implementar webhook handler para Mercado Livre
   - Endpoint /api/webhooks/mercadolivre/order
   - Validar token de acesso
   - Extrair dados do pedido
@@ -426,11 +426,11 @@ otifyProviderOfOrder(order)
   - _Effort: 2 horas_
   - _Acceptance Criteria:_
     - [ ] Endpoint funcionando
-    - [~] Token validado
+    - [ ] Token validado
     - [ ] Roteamento disparado
     - [ ] Teste com payloads reais
 
-- [~] 11.3 Armazenar pedidos com dados completos
+- [ ] 11.3 Armazenar pedidos com dados completos
   - Implementar storeOrder() method
   - Extrair: cliente, itens, endereço, pagamento, total
   - Criar registros em orders e order_items
@@ -438,14 +438,14 @@ otifyProviderOfOrder(order)
   - _Requirements: 4_
   - _Effort: 2 horas_
   - _Acceptance Criteria:_
-    - [~] Pedido armazenado completamente
-    - [~] Itens associados corretamente
-    - [~] Transação atômica
-    - [~] Teste com pedido de 10 itens
+    - [ ] Pedido armazenado completamente
+    - [ ] Itens associados corretamente
+    - [ ] Transação atômica
+    - [ ] Teste com pedido de 10 itens
 
 ### 12. Sincronização de Status de Pedidos
 
-- [~] 12.1 Implementar atualização de status local
+- [ ] 12.1 Implementar atualização de status local
   - Permitir vendedor atualizar status (processing, shipped, delivered)
   - Validar transições de status
   - Registrar timestamp de mudança
@@ -453,22 +453,22 @@ otifyProviderOfOrder(order)
   - _Requirements: 4_
   - _Effort: 1.5 horas_
   - _Acceptance Criteria:_
-    - [~] Status atualizado localmente
-    - [~] Transições validadas
-    - [~] Timestamp registrado
-    - [~] Teste com todas as transições válidas
+    - [ ] Status atualizado localmente
+    - [ ] Transições validadas
+    - [ ] Timestamp registrado
+    - [ ] Teste com todas as transições válidas
 
-- [~] 12.2 Sincronizar status para marketplace
+- [ ] 12.2 Sincronizar status para marketplace
   - Implementar syncOrderStatusToMarketplace()
   - Chamar API apropriada para Shopee/ML
   - Atualizar status do pedido no provedor
   - _Requirements: 4, 10_
   - _Effort: 2 horas_
   - _Acceptance Criteria:_
-    - [~] Sincronização implementada
-    - [~] Status atualizado no marketplace
-    - [~] Status atualizado no provedor
-    - [~] Teste com todos os status
+    - [ ] Sincronização implementada
+    - [ ] Status atualizado no marketplace
+    - [ ] Status atualizado no provedor
+    - [ ] Teste com todos os status
 
 ---
 
@@ -476,7 +476,7 @@ otifyProviderOfOrder(order)
 
 ### 13. Relatórios de Vendas e Provedores
 
-- [~] 13.1 Implementar relatórios de vendas
+- [ ] 13.1 Implementar relatórios de vendas
   - Total de vendas por período
   - Vendas por provedor
   - Vendas por marketplace
@@ -484,22 +484,22 @@ otifyProviderOfOrder(order)
   - _Requirements: 12_
   - _Effort: 2 horas_
   - _Acceptance Criteria:_
-    - [~] Relatórios funcionando
-    - [~] Filtros por período
-    - [~] Exportação CSV/PDF
-    - [~] Teste com 1000 pedidos
+    - [ ] Relatórios funcionando
+    - [ ] Filtros por período
+    - [ ] Exportação CSV/PDF
+    - [ ] Teste com 1000 pedidos
 
-- [~] 13.2 Implementar relatórios de desempenho do provedor
+- [ ] 13.2 Implementar relatórios de desempenho do provedor
   - Tempo médio de resposta
   - Taxa de sucesso nos pedidos
   - Estoque disponível (fornecido pelo provedor)
   - _Requirements: 5, 12_
   - _Effort: 2 horas_
   - _Acceptance Criteria:_
-    - [~] Métricas coletadas
+    - [ ] Métricas coletadas
     - [ ] Relatórios funcionando
-    - [~] Alertas configuráveis
-    - [~] Teste com provedores reais
+    - [ ] Alertas configuráveis
+    - [ ] Teste com provedores reais
 
 ---
 
@@ -507,29 +507,29 @@ otifyProviderOfOrder(order)
 
 ### 14. Escalonamento Horizontal
 
-- [~] 14.1 Configurar multiple instances
+- [ ] 14.1 Configurar multiple instances
   - Suportar múltiplas instâncias do Next.js
   - Redis para distributed locking
   - Database connection pooling
   - _Requirements: 12_
   - _Effort: 2 horas_
   - _Acceptance Criteria:_
-    - [~] Múltiplas instâncias funcionando
-    - [~] Distributed locking
-    - [~] Connection pooling
-    - [~] Teste com 5 instâncias
+    - [ ] Múltiplas instâncias funcionando
+    - [ ] Distributed locking
+    - [ ] Connection pooling
+    - [ ] Teste com 5 instâncias
 
-- [~] 14.2 Implementar queue workers
+- [ ] 14.2 Implementar queue workers
   - Múltiplos workers por fila
   - Balanceamento de carga
   - Retry e error handling
   - _Requirements: 6, 10_
   - _Effort: 2 horas_
   - _Acceptance Criteria:_
-    - [~] Workers configurados
-    - [~] Load balancing
-    - [~] Retry funcionando
-    - [~] Teste com 1000 jobs/min
+    - [ ] Workers configurados
+    - [ ] Load balancing
+    - [ ] Retry funcionando
+    - [ ] Teste com 1000 jobs/min
 
 ---
 

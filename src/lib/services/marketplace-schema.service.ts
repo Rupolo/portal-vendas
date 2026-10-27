@@ -128,7 +128,7 @@ export class MarketplaceSchemaService {
    * const categories = await schemaService.fetchAndCacheSchemas('shopee', 'categories');
    * ```
    */
-  async fetchAndCacheSchemas(marketplace: Marketplace, type: SchemaType = 'all'): Promise<MarketplaceSchema> {
+  async fetchAndCacheSchemas(marketplace: Marketplace, type: SchemaType = 'all'): Promise<MarketplaceSchema | null> {
     const cacheKey = CACHE_KEY_PATTERNS.SCHEMA(marketplace, type);
     const lastFetch = this.lastFetchTime.get(cacheKey) || 0;
     const now = Date.now();
@@ -139,19 +139,32 @@ export class MarketplaceSchemaService {
         `[MarketplaceSchemaService] Fetch interval not met for ${marketplace} ${type}. ` +
         `Will retry in ${this.MIN_FETCH_INTERVAL - (now - lastFetch)}ms`
       );
-      
-      // Return cached version if available
+
       const cached = await getCached<MarketplaceSchema>(cacheKey);
       if (cached) {
         this.cacheStats.hits++;
         console.log(`[MarketplaceSchemaService] Returning cached schema for ${marketplace} ${type} (cache hit)`);
         return cached;
       }
+
+      console.log(`[MarketplaceSchemaService] No cached schema available for ${marketplace} ${type}; skipping fetch during cooldown`);
+      return null;
+    }
+
+    // If a fresh cached schema exists and we are still within the TTL, return it instead of refetching.
+    const cachedBeforeFetch = await getCached<MarketplaceSchema>(cacheKey);
+    if (cachedBeforeFetch) {
+      const expiresAt = new Date(cachedBeforeFetch.expiresAt);
+      if (new Date() <= expiresAt) {
+        this.cacheStats.hits++;
+        console.log(`[MarketplaceSchemaService] Returning cached schema for ${marketplace} ${type} (cache hit)`);
+        return cachedBeforeFetch;
+      }
     }
 
     try {
       this.cacheStats.fetches++;
-      
+
       console.log(`[MarketplaceSchemaService] Fetching ${type} schemas from ${marketplace}...`);
 
       // Fetch from marketplace API
@@ -288,20 +301,23 @@ export class MarketplaceSchemaService {
         // Invalidate specific schema type
         const cacheKey = CACHE_KEY_PATTERNS.SCHEMA(marketplace, type);
         await invalidateCache(cacheKey);
-        
+
         // Also invalidate metadata cache
         await invalidateCache(CACHE_KEY_PATTERNS.SCHEMA_METADATA(marketplace));
-        
+
+        // Clear the broader wildcard key as well so a managed refresh does not leave stale entries behind.
+        await invalidateByPattern(CACHE_KEY_PATTERNS.SCHEMA_WILDCARD(marketplace));
+
         this.cacheStats.invalidations++;
-        
+
         console.log(`[MarketplaceSchemaService] ✓ Invalidated cache for ${marketplace} ${type}`);
       } else {
         // Invalidate all schemas for marketplace
         const pattern = CACHE_KEY_PATTERNS.SCHEMA_WILDCARD(marketplace);
         await invalidateByPattern(pattern);
-        
+
         this.cacheStats.invalidations++;
-        
+
         console.log(`[MarketplaceSchemaService] ✓ Invalidated all schemas for ${marketplace}`);
       }
 
@@ -342,12 +358,17 @@ export class MarketplaceSchemaService {
    */
   async refreshSchema(marketplace: Marketplace, type: SchemaType = 'all'): Promise<MarketplaceSchema> {
     console.log(`[MarketplaceSchemaService] Manually refreshing ${marketplace} ${type}...`);
-    
+
     // Invalidate cache first
     await this.invalidateSchemaCache(marketplace, type);
-    
+
     // Fetch fresh data
-    return this.fetchAndCacheSchemas(marketplace, type);
+    const refreshed = await this.fetchAndCacheSchemas(marketplace, type);
+    if (!refreshed) {
+      throw new Error(`Failed to refresh schema for ${marketplace} ${type}`);
+    }
+
+    return refreshed;
   }
 
   /**

@@ -1,44 +1,25 @@
 ﻿/**
- * Provider Service
- * =================
- * 
- * Manages providers (dropshipping suppliers) for Portal Vendas.
- * Provides CRUD operations, mapping between products and providers,
- * and validation of provider availability.
- * 
- * Features:
- * - CRUD operations for providers
- * - Product-provider mapping
- * - Provider credential management (encrypted)
- * - Availability validation
- * 
- * @see schema.prisma for database models
- * @see auth.service.ts for credential encryption
+ * Marketplace Providers Service
+ * ============================
+ *
+ * This service bridges the app with the real Prisma schema currently in the repo.
+ * It stores marketplace credentials in the MarketplaceAuth/MarketplaceConfig tables
+ * and exposes a safe abstraction for authentication and sync setup.
  */
 
-import { PrismaClient } from '@/generated/prisma';
-import { config } from '../config';
-import { encryptData, decryptData } from '../encryption';
+import { prisma } from '../prisma';
+import { encryptData, decryptData } from './encryption';
 import type { MarketplaceType } from '../types/marketplace.types';
-
-const prisma = new PrismaClient();
-
-// ============================================================================
-// TYPES AND INTERFACES
-// ============================================================================
-
-export type ProviderStatus = 'pending' | 'active' | 'inactive' | 'suspended';
-export type ProductProviderStatus = 'pending' | 'synced' | 'failed';
 
 export interface Provider {
   id: string;
   vendorId: string;
   name: string;
   description?: string;
-  email: string;
+  email?: string;
   phone?: string;
   document?: string;
-  address?: any;
+  address?: unknown;
   isActive: boolean;
   isAvailable: boolean;
   categories: string[];
@@ -56,7 +37,7 @@ export interface ProviderProduct {
   name: string;
   price: number;
   availableQuantity: number;
-  syncStatus: ProductProviderStatus;
+  syncStatus: 'pending' | 'synced' | 'failed';
   lastSyncedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -74,378 +55,253 @@ export interface ProviderCredential {
   updatedAt: Date;
 }
 
-export interface ProviderStats {
-  totalProducts: number;
-  activeProducts: number;
-  totalOrders: number;
-  successRate: number;
-  avgResponseTime: number;
+export interface MarketplaceProviderConfig {
+  vendorId: string;
+  marketplace: MarketplaceType;
+  isActive: boolean;
+  autoSync: boolean;
+  syncFrequency: number;
+  conflictStrategy: 'latest' | 'local-priority' | 'remote-priority' | 'inventory-min';
+  maxRetries: number;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// ============================================================================
-// PROVIDER SERVICE
-// ============================================================================
+export interface MarketplaceProviderCredential {
+  vendorId: string;
+  marketplace: MarketplaceType;
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt?: Date;
+  tokenType: string;
+  scope?: string[];
+  isValid: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export class ProviderService {
-  /**
-   * Get all providers for a vendor
-   */
-  async getProviders(vendorId: string, opts?: { isActive?: boolean }): Promise<Provider[]> {
-    try {
-      const where: any = { vendorId };
-      if (opts?.isActive !== undefined) {
-        where.isActive = opts.isActive;
-      }
-
-      const providers = await prisma.provider.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-      });
-
-      return providers as any;
-    } catch (error) {
-      console.error('[ProviderService] Error getting providers:', error);
-      throw error;
+  async saveMarketplaceCredentials(
+    vendorId: string,
+    marketplace: MarketplaceType,
+    accessToken: string,
+    refreshToken?: string,
+    expiresAt?: Date,
+    tokenType = 'Bearer',
+    scope: string[] = [],
+  ): Promise<MarketplaceProviderCredential> {
+    if (!vendorId || !marketplace || !accessToken) {
+      throw new Error('vendorId, marketplace and accessToken are required');
     }
+
+    const encryptedAccess = encryptData(accessToken);
+    const encryptedRefresh = refreshToken ? encryptData(refreshToken) : null;
+
+    const record = await prisma.marketplaceAuth.upsert({
+      where: {
+        vendorId_marketplace: { vendorId, marketplace },
+      },
+      update: {
+        encryptedAccessToken: encryptedAccess.encrypted,
+        encryptedRefreshToken: encryptedRefresh?.encrypted ?? null,
+        accessTokenIv: encryptedAccess.iv,
+        accessTokenSalt: encryptedAccess.salt,
+        accessTokenAuthTag: encryptedAccess.authTag,
+        refreshTokenIv: encryptedRefresh?.iv ?? null,
+        refreshTokenSalt: encryptedRefresh?.salt ?? null,
+        refreshTokenAuthTag: encryptedRefresh?.authTag ?? null,
+        expiresAt: expiresAt ?? null,
+        tokenType,
+        scope: scope as any,
+        isValid: true,
+      },
+      create: {
+        vendorId,
+        marketplace,
+        encryptedAccessToken: encryptedAccess.encrypted,
+        encryptedRefreshToken: encryptedRefresh?.encrypted ?? null,
+        accessTokenIv: encryptedAccess.iv,
+        accessTokenSalt: encryptedAccess.salt,
+        accessTokenAuthTag: encryptedAccess.authTag,
+        refreshTokenIv: encryptedRefresh?.iv ?? null,
+        refreshTokenSalt: encryptedRefresh?.salt ?? null,
+        refreshTokenAuthTag: encryptedRefresh?.authTag ?? null,
+        expiresAt: expiresAt ?? null,
+        tokenType,
+        scope: scope as any,
+        isValid: true,
+      },
+    });
+
+    await prisma.marketplaceConfig.upsert({
+      where: {
+        vendorId_marketplace: { vendorId, marketplace },
+      },
+      update: {
+        isActive: true,
+        autoSync: true,
+      },
+      create: {
+        vendorId,
+        marketplace,
+        isActive: true,
+        autoSync: true,
+        syncFrequency: 300000,
+        conflictStrategy: 'latest',
+        maxRetries: 5,
+      },
+    });
+
+    return {
+      vendorId: record.vendorId,
+      marketplace: record.marketplace as MarketplaceType,
+      accessToken: decryptData(
+        record.encryptedAccessToken,
+        record.accessTokenIv,
+        record.accessTokenSalt,
+        record.accessTokenAuthTag,
+      ),
+      refreshToken:
+        record.encryptedRefreshToken &&
+        record.refreshTokenIv &&
+        record.refreshTokenSalt &&
+        record.refreshTokenAuthTag
+          ? decryptData(
+              record.encryptedRefreshToken,
+              record.refreshTokenIv,
+              record.refreshTokenSalt,
+              record.refreshTokenAuthTag,
+            )
+          : undefined,
+      expiresAt: record.expiresAt ?? undefined,
+      tokenType: record.tokenType,
+      scope: Array.isArray(record.scope) ? (record.scope as string[]) : [],
+      isValid: record.isValid,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    };
   }
 
-  /**
-   * Get provider by ID
-   */
-  async getProviderById(id: string): Promise<Provider | null> {
-    try {
-      const provider = await prisma.provider.findUnique({
-        where: { id },
-      });
+  async getMarketplaceCredentials(
+    vendorId: string,
+    marketplace: MarketplaceType,
+  ): Promise<MarketplaceProviderCredential | null> {
+    const record = await prisma.marketplaceAuth.findUnique({
+      where: {
+        vendorId_marketplace: { vendorId, marketplace },
+      },
+    });
 
-      return provider as any;
-    } catch (error) {
-      console.error('[ProviderService] Error getting provider:', error);
-      throw error;
+    if (!record) {
+      return null;
     }
+
+    return {
+      vendorId: record.vendorId,
+      marketplace: record.marketplace as MarketplaceType,
+      accessToken: decryptData(
+        record.encryptedAccessToken,
+        record.accessTokenIv,
+        record.accessTokenSalt,
+        record.accessTokenAuthTag,
+      ),
+      refreshToken:
+        record.encryptedRefreshToken &&
+        record.refreshTokenIv &&
+        record.refreshTokenSalt &&
+        record.refreshTokenAuthTag
+          ? decryptData(
+              record.encryptedRefreshToken,
+              record.refreshTokenIv,
+              record.refreshTokenSalt,
+              record.refreshTokenAuthTag,
+            )
+          : undefined,
+      expiresAt: record.expiresAt ?? undefined,
+      tokenType: record.tokenType,
+      scope: Array.isArray(record.scope) ? (record.scope as string[]) : [],
+      isValid: record.isValid,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    };
   }
 
-  /**
-   * Create a new provider
-   */
-  async createProvider(vendorId: string, data: Partial<Provider>): Promise<Provider> {
-    try {
-      const provider = await prisma.provider.create({
-        data: {
-          vendorId,
-          name: data.name,
-          description: data.description,
-          email: data.email,
-          phone: data.phone,
-          document: data.document,
-          address: data.address,
-          isActive: data.isActive ?? true,
-          isAvailable: data.isAvailable ?? false,
-          categories: data.categories ?? [],
-          responseTimeMinutes: data.responseTimeMinutes,
-          successRate: data.successRate,
-        },
-      });
+  async getMarketplaceConfig(
+    vendorId: string,
+    marketplace: MarketplaceType,
+  ): Promise<MarketplaceProviderConfig | null> {
+    const record = await prisma.marketplaceConfig.findUnique({
+      where: {
+        vendorId_marketplace: { vendorId, marketplace },
+      },
+    });
 
-      console.log([ProviderService] Provider created: );
-      return provider as any;
-    } catch (error) {
-      console.error('[ProviderService] Error creating provider:', error);
-      throw error;
+    if (!record) {
+      return null;
     }
+
+    return {
+      vendorId: record.vendorId,
+      marketplace: record.marketplace as MarketplaceType,
+      isActive: record.isActive,
+      autoSync: record.autoSync,
+      syncFrequency: record.syncFrequency,
+      conflictStrategy: record.conflictStrategy as MarketplaceProviderConfig['conflictStrategy'],
+      maxRetries: record.maxRetries,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    };
   }
 
-  /**
-   * Update provider
-   */
-  async updateProvider(id: string, data: Partial<Provider>): Promise<Provider> {
-    try {
-      const provider = await prisma.provider.update({
-        where: { id },
-        data,
-      });
+  async updateMarketplaceConfig(
+    vendorId: string,
+    marketplace: MarketplaceType,
+    updates: Partial<Omit<MarketplaceProviderConfig, 'vendorId' | 'marketplace' | 'createdAt' | 'updatedAt'>>,
+  ): Promise<MarketplaceProviderConfig> {
+    const record = await prisma.marketplaceConfig.upsert({
+      where: {
+        vendorId_marketplace: { vendorId, marketplace },
+      },
+      update: {
+        isActive: updates.isActive,
+        autoSync: updates.autoSync,
+        syncFrequency: updates.syncFrequency,
+        conflictStrategy: updates.conflictStrategy,
+        maxRetries: updates.maxRetries,
+      },
+      create: {
+        vendorId,
+        marketplace,
+        isActive: updates.isActive ?? true,
+        autoSync: updates.autoSync ?? true,
+        syncFrequency: updates.syncFrequency ?? 300000,
+        conflictStrategy: updates.conflictStrategy ?? 'latest',
+        maxRetries: updates.maxRetries ?? 5,
+      },
+    });
 
-      console.log([ProviderService] Provider updated: );
-      return provider as any;
-    } catch (error) {
-      console.error('[ProviderService] Error updating provider:', error);
-      throw error;
-    }
+    return {
+      vendorId: record.vendorId,
+      marketplace: record.marketplace as MarketplaceType,
+      isActive: record.isActive,
+      autoSync: record.autoSync,
+      syncFrequency: record.syncFrequency,
+      conflictStrategy: record.conflictStrategy as MarketplaceProviderConfig['conflictStrategy'],
+      maxRetries: record.maxRetries,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    };
   }
 
-  /**
-   * Delete provider (soft delete)
-   */
-  async deleteProvider(id: string): Promise<void> {
-    try {
-      await prisma.provider.update({
-        where: { id },
-        data: { isActive: false },
-      });
-
-      console.log([ProviderService] Provider deleted: );
-    } catch (error) {
-      console.error('[ProviderService] Error deleting provider:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Toggle provider availability
-   */
-  async toggleAvailability(id: string, isAvailable: boolean): Promise<void> {
-    try {
-      await prisma.provider.update({
-        where: { id },
-        data: { isAvailable },
-      });
-
-      console.log([ProviderService] Provider  availability set to: );
-    } catch (error) {
-      console.error('[ProviderService] Error toggling availability:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Validate provider availability
-   */
-  async validateProviderAvailability(providerId: string): Promise<boolean> {
-    try {
-      const provider = await prisma.provider.findUnique({
-        where: { id: providerId },
-        select: { isActive: true, isAvailable: true },
-      });
-
-      return provider?.isActive === true && provider.isAvailable === true;
-    } catch (error) {
-      console.error('[ProviderService] Error validating provider:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Get provider by product ID
-   */
-  async getProviderByProduct(productId: string): Promise<Provider | null> {
-    try {
-      const providerProduct = await prisma.providerProduct.findFirst({
-        where: { productId },
-        include: { provider: true },
-      });
-
-      return providerProduct?.provider ?? null;
-    } catch (error) {
-      console.error('[ProviderService] Error getting provider by product:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Assign product to provider
-   */
-  async assignProductToProvider(
-    productId: string,
-    providerId: string,
-    providerSku: string,
-    name: string,
-    price: number,
-    availableQuantity: number = 0
-  ): Promise<ProviderProduct> {
-    try {
-      const providerProduct = await prisma.providerProduct.upsert({
-        where: {
-          providerId_productId: { providerId, productId },
-        },
-        update: {
-          providerSku,
-          name,
-          price,
-          availableQuantity,
-          syncStatus: 'pending',
-        },
-        create: {
-          providerId,
-          productId,
-          providerSku,
-          name,
-          price,
-          availableQuantity,
-          syncStatus: 'pending',
-        },
-        include: { provider: true, product: true },
-      });
-
-      console.log([ProviderService] Product assigned to provider:  -> );
-      return providerProduct as any;
-    } catch (error) {
-      console.error('[ProviderService] Error assigning product to provider:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Update provider product
-   */
-  async updateProviderProduct(
-    providerId: string,
-    productId: string,
-    data: Partial<ProviderProduct>
-  ): Promise<ProviderProduct> {
-    try {
-      const providerProduct = await prisma.providerProduct.update({
-        where: { providerId_productId: { providerId, productId } },
-        data,
-      });
-
-      return providerProduct as any;
-    } catch (error) {
-      console.error('[ProviderService] Error updating provider product:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Sync provider products status
-   */
-  async syncProviderProductsStatus(
-    providerId: string,
-    products: Array<{ productId: string; providerSku: string; syncStatus: ProductProviderStatus }>
-  ): Promise<void> {
-    try {
-      for (const product of products) {
-        await prisma.providerProduct.update({
-          where: { providerId_productId: { providerId, productId: product.productId } },
-          data: {
-            providerSku: product.providerSku,
-            syncStatus: product.syncStatus,
-            lastSyncedAt: new Date(),
-          },
-        });
-      }
-      console.log([ProviderService] Synced  provider products);
-    } catch (error) {
-      console.error('[ProviderService] Error syncing provider products:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get provider stats
-   */
-  async getProviderStats(providerId: string): Promise<ProviderStats> {
-    try {
-      const [products, orders] = await Promise.all([
-        prisma.providerProduct.count({
-          where: { providerId },
-        }),
-        prisma.orderProviderAssignment.count({
-          where: { providerId, status: { not: 'pending' } },
-        }),
-      ]);
-
-      const successfulOrders = await prisma.orderProviderAssignment.count({
-        where: { providerId, status: 'delivered' },
-      });
-
-      const successRate = orders > 0 ? (successfulOrders / orders) * 100 : 100;
-
-      return {
-        totalProducts: products,
-        activeProducts: products, // TODO: Implement active count
-        totalOrders: orders,
-        successRate,
-        avgResponseTime: 30, // TODO: Calculate from actual data
-      };
-    } catch (error) {
-      console.error('[ProviderService] Error getting provider stats:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Store provider credentials (encrypted)
-   */
-  async storeProviderCredentials(
-    providerId: string,
-    apiKey: string,
-    secret?: string,
-    endpointUrl: string = '',
-    webhookUrl?: string
-  ): Promise<void> {
-    try {
-      // Encrypt credentials
-      const encryptedApiKey = encryptData(apiKey);
-      const encryptedSecret = secret ? encryptData(secret) : undefined;
-
-      // Store credentials
-      await prisma.providerCredential.upsert({
-        where: { providerId },
-        update: {
-          encryptedApiKey,
-          apiKeyIv: encryptedApiKey.iv,
-          apiKeySalt: encryptedApiKey.salt,
-          apiKeyAuthTag: encryptedApiKey.authTag,
-          encryptedSecret: encryptedSecret?.encrypted,
-          secretIv: encryptedSecret?.iv,
-          secretSalt: encryptedSecret?.salt,
-          secretAuthTag: encryptedSecret?.authTag,
-          endpointUrl,
-          webhookUrl,
-          isActive: true,
-        },
-        create: {
-          providerId,
-          encryptedApiKey,
-          apiKeyIv: encryptedApiKey.iv,
-          apiKeySalt: encryptedApiKey.salt,
-          apiKeyAuthTag: encryptedApiKey.authTag,
-          encryptedSecret: encryptedSecret?.encrypted,
-          secretIv: encryptedSecret?.iv,
-          secretSalt: encryptedSecret?.salt,
-          secretAuthTag: encryptedSecret?.authTag,
-          endpointUrl,
-          webhookUrl,
-          isActive: true,
-        },
-      });
-
-      console.log([ProviderService] Credentials stored for provider: );
-    } catch (error) {
-      console.error('[ProviderService] Error storing provider credentials:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get provider credentials (decrypted)
-   */
-  async getProviderCredentials(providerId: string): Promise<ProviderCredential | null> {
-    try {
-      const credential = await prisma.providerCredential.findUnique({
-        where: { providerId },
-      });
-
-      if (!credential) return null;
-
-      return {
-        id: credential.id,
-        providerId: credential.providerId,
-        apiKey: decryptData(credential.encryptedApiKey, credential.apiKeyIv, credential.apiKeySalt, credential.apiKeyAuthTag),
-        secret: credential.encryptedSecret ? decryptData(credential.encryptedSecret, credential.secretIv || '', credential.secretSalt || '', credential.secretAuthTag || '') : undefined,
-        endpointUrl: credential.endpointUrl,
-        webhookUrl: credential.webhookUrl,
-        isActive: credential.isActive,
-        createdAt: credential.createdAt,
-        updatedAt: credential.updatedAt,
-      };
-    } catch (error) {
-      console.error('[ProviderService] Error getting provider credentials:', error);
-      throw error;
-    }
+  async deleteMarketplaceCredentials(vendorId: string, marketplace: MarketplaceType): Promise<void> {
+    await prisma.marketplaceAuth.deleteMany({
+      where: {
+        vendorId,
+        marketplace,
+      },
+    });
   }
 }
 
-// Export singleton instance
 export const providerService = new ProviderService();
 export default providerService;

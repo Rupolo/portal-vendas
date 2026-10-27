@@ -82,10 +82,10 @@ export function calculateBackoff(options: BackoffOptions = {}): number {
 export function getBackoffForQueue(
   queueName: string
 ): { type: string; delay: number } {
-  const queueConfig = (config.queues as any)[queueName];
-  
+  const queueConfig = (config.queues as Record<string, any>)[queueName];
+
   if (queueConfig?.defaultJobOptions?.backoff) {
-    return queueConfig.defaultJobOptions.backoff;
+    return queueConfig.defaultJobOptions.backoff as { type: string; delay: number };
   }
 
   // Default fallback
@@ -110,10 +110,12 @@ export function validateBackoffConfig(): {
   const warnings: string[] = [];
   const queues: Record<string, any> = {};
 
-  // Check each queue's backoff configuration
-  for (const [queueName, queueConfig] of Object.entries(config.queues as any)) {
-    const backoff = queueConfig.defaultJobOptions?.backoff;
-    
+  const queueEntries = Object.entries(config.queues as Record<string, any>);
+
+  for (const [queueName, queueConfig] of queueEntries) {
+    const backoff = (queueConfig as { defaultJobOptions?: { backoff?: { type: string; delay: number }; attempts?: number } })
+      .defaultJobOptions?.backoff;
+
     if (!backoff) {
       warnings.push(`Queue "${queueName}" has no backoff configuration`);
       continue;
@@ -129,7 +131,8 @@ export function validateBackoffConfig(): {
     }
 
     // Calculate expected delays for this queue
-    const maxAttempts = queueConfig.defaultJobOptions?.attempts || 5;
+    const defaultJobOptions = (queueConfig as { defaultJobOptions?: { attempts?: number } }).defaultJobOptions ?? {};
+    const maxAttempts = defaultJobOptions.attempts || 5;
     const expectedDelays = [];
     
     for (let i = 0; i < maxAttempts; i++) {

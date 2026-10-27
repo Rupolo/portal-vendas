@@ -45,7 +45,7 @@ if (backoffValidation.valid) {
 
   console.log(`   productSync (5 attempts):`);
   console.log(`   ├─ Expected: 5s → 10s → 20s → 40s → 60s (capped)`);
-  console.log(`   ├─ Actual:   ${delays.map(d => `${d / 1000}s`).join(' → ')}`);
+  console.log(`   ├─ Actual:   ${delays.map((d: number) => `${d / 1000}s`).join(' → ')}`);
 
   const matches =
     delays[0] === 5000 &&

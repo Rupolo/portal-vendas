@@ -39,18 +39,48 @@ export class WebhookValidatorService {
     secret: string
   ): boolean {
     try {
-      // ML format: "sha256=<signature>"
-      const parts = xSignature.split('=');
-
-      if (parts.length !== 2 || parts[0] !== 'sha256') {
+      const rawSignature = (xSignature ?? '').trim();
+      if (!rawSignature) {
         return false;
       }
 
-      const expectedSignature = crypto.createHmac('sha256', secret).update(body).digest('base64');
-      const providedSignature = Buffer.from(parts[1], 'base64').toString('hex');
-      const expectedHex = Buffer.from(expectedSignature, 'base64').toString('hex');
+      const providedSignature = rawSignature.replace(/^sha256=/i, '').trim().toLowerCase();
+      const expectedHex = crypto.createHmac('sha256', secret).update(body).digest('hex').toLowerCase();
 
-      return this.timingSafeEqualWrapper(providedSignature, expectedHex);
+      if (providedSignature === expectedHex) {
+        return true;
+      }
+
+      const fromBase64 = (() => {
+        try {
+          return Buffer.from(providedSignature, 'base64').toString('hex').toLowerCase();
+        } catch {
+          return '';
+        }
+      })();
+
+      if (fromBase64 && fromBase64 === expectedHex) {
+        return true;
+      }
+
+      const fromHex = (() => {
+        try {
+          return Buffer.from(providedSignature, 'hex').toString('hex').toLowerCase();
+        } catch {
+          return '';
+        }
+      })();
+
+      if (fromHex && fromHex === expectedHex) {
+        return true;
+      }
+
+      const expectedBase64 = crypto.createHmac('sha256', secret).update(body).digest('base64').toLowerCase();
+      if (providedSignature === expectedBase64) {
+        return true;
+      }
+
+      return false;
     } catch (error) {
       console.error('[WebhookValidator] Mercado Livre validation error:', error);
       return false;

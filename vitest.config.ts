@@ -35,10 +35,12 @@ export default defineConfig({
         'src/**/*.pbt.ts',
         'node_modules/',
       ],
-      lines: 80,
-      functions: 80,
-      branches: 80,
-      statements: 80,
+      thresholds: {
+        lines: 80,
+        functions: 80,
+        branches: 80,
+        statements: 80,
+      },
     },
 
     // Timeout for tests

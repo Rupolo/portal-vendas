@@ -15,7 +15,15 @@ export {
   type SchemaType,
   type MarketplaceSchema,
 } from './marketplace-schema.service';
-export { ProviderService, providerService, type Provider, type ProviderProduct, type ProviderCredential } from './provider.service';
+export {
+  ProviderService,
+  providerService,
+  type Provider,
+  type ProviderProduct,
+  type ProviderCredential,
+  type MarketplaceProviderConfig,
+  type MarketplaceProviderCredential,
+} from './provider.service';
 
 // Encryption utilities for secure token storage
 export { encryptData, decryptData, type EncryptedData } from './encryption';

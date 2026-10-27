@@ -33,7 +33,7 @@ function validateMigration(): ValidationResult {
   const prismaGeneratedPath = path.join(__dirname, "../src/generated/prisma");
 
   // Check 1: Migration file exists
-  const check1 = {
+  const check1: ValidationResult['checks'][number] = {
     name: "Migration file exists",
     passed: fs.existsSync(migrationPath),
   };
@@ -45,7 +45,7 @@ function validateMigration(): ValidationResult {
   // Check 2: Migration file has content
   if (check1.passed) {
     const stats = fs.statSync(migrationPath);
-    const check2 = {
+    const check2: ValidationResult['checks'][number] = {
       name: "Migration file has content (size > 1000 bytes)",
       passed: stats.size > 1000,
     };
@@ -84,7 +84,7 @@ function validateMigration(): ValidationResult {
       }
     });
 
-    const check3 = {
+    const check3: ValidationResult['checks'][number] = {
       name: `All ${requiredTables.length} required tables present`,
       passed: missingTables.length === 0,
     };
@@ -110,7 +110,7 @@ function validateMigration(): ValidationResult {
       }
     });
 
-    const check4 = {
+    const check4: ValidationResult['checks'][number] = {
       name: `Performance indexes present (${requiredIndexes.length})`,
       passed: missingIndexes.length === 0,
     };
@@ -133,7 +133,7 @@ function validateMigration(): ValidationResult {
       }
     });
 
-    const check5 = {
+    const check5: ValidationResult['checks'][number] = {
       name: `Foreign key constraints present (${requiredForeignKeys.length})`,
       passed: missingForeignKeys.length === 0,
     };
@@ -143,7 +143,7 @@ function validateMigration(): ValidationResult {
     results.checks.push(check5);
 
     // Check 6: CASCADE delete
-    const check6 = {
+    const check6: ValidationResult['checks'][number] = {
       name: "CASCADE delete configured for data integrity",
       passed: migrationContent.includes("ON DELETE CASCADE"),
     };
@@ -153,7 +153,7 @@ function validateMigration(): ValidationResult {
     results.checks.push(check6);
 
     // Check 7: JSONB fields for flexible schema
-    const check7 = {
+    const check7: ValidationResult['checks'][number] = {
       name: "JSONB fields for flexible data schema",
       passed:
         migrationContent.includes('"attributes" JSONB') &&
@@ -166,7 +166,7 @@ function validateMigration(): ValidationResult {
     results.checks.push(check7);
 
     // Check 8: PostgreSQL data types
-    const check8 = {
+    const check8: ValidationResult['checks'][number] = {
       name: "Proper PostgreSQL data types",
       passed:
         migrationContent.includes("TEXT") &&
@@ -183,7 +183,7 @@ function validateMigration(): ValidationResult {
   }
 
   // Check 9: Prisma client generated
-  const check9 = {
+  const check9: ValidationResult['checks'][number] = {
     name: "Prisma client generated",
     passed: fs.existsSync(prismaGeneratedPath),
   };
@@ -195,7 +195,7 @@ function validateMigration(): ValidationResult {
   // Check 10: Generated index.d.ts
   if (check9.passed) {
     const indexPath = path.join(prismaGeneratedPath, "index.d.ts");
-    const check10 = {
+    const check10: ValidationResult['checks'][number] = {
       name: "Prisma type definitions generated (index.d.ts)",
       passed: fs.existsSync(indexPath),
     };
@@ -220,7 +220,7 @@ function validateMigration(): ValidationResult {
         }
       });
 
-      const check11 = {
+      const check11: ValidationResult['checks'][number] = {
         name: `Required model types generated (${requiredModels.length})`,
         passed: missingModels.length === 0,
       };

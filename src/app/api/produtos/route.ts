@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchMercadoLivre } from "@/lib/mercadolivre";
 import { searchShopee } from "@/data/shopee-products";
-import type { Marketplace } from "@/lib/types";
+import type { Marketplace, Product } from "@/lib/types";
 
 export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get("q") ?? "";
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   ) as Marketplace | "all" | null;
 
   try {
-    const results = [];
+    const results: Product[] = [];
 
     if (!marketplace || marketplace === "all" || marketplace === "mercadolivre") {
       if (query.trim()) {
@@ -20,12 +20,13 @@ export async function GET(request: NextRequest) {
     }
 
     if (!marketplace || marketplace === "all" || marketplace === "shopee") {
-      const shopeeResults = searchShopee(query);
+      const shopeeResults = await searchShopee(query);
       results.push(...shopeeResults);
     }
 
     if (!query.trim() && (!marketplace || marketplace === "all")) {
-      results.push(...searchShopee(""));
+      const fallbackProducts = await searchShopee("");
+      results.push(...fallbackProducts);
     }
 
     return NextResponse.json({ products: results, query });

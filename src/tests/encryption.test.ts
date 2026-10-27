@@ -12,7 +12,7 @@
  * - Teste de round-trip (encrypt/decrypt)
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { encryptData, decryptData, type EncryptedData } from '@/lib/services/encryption';
 
 // ============================================================================

@@ -472,7 +472,11 @@ export async function checkRedisHealth(): Promise<boolean> {
 export async function getAllQueueStats(): Promise<Map<QueueName, Record<string, any>>> {
   const stats = new Map<QueueName, Record<string, any>>();
 
-  for (const [name, queue] of queueInstances.entries()) {
+  const configuredQueues = Object.keys(config.queues) as QueueName[];
+
+  for (const name of configuredQueues) {
+    const queue = getQueue(name);
+
     try {
       const counts = await queue.getJobCounts();
       const size = await queue.count();

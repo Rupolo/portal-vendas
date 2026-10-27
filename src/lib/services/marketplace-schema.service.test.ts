@@ -14,6 +14,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { marketplaceSchemaService, MarketplaceSchemaService, type Marketplace } from './marketplace-schema.service';
+import { webhookValidatorService } from './webhook-validator.service';
 import * as cacheModule from '../cache';
 
 // ============================================================================
@@ -37,13 +38,13 @@ describe('MarketplaceSchemaService', () => {
   beforeEach(() => {
     // Create fresh instance for each test
     service = new MarketplaceSchemaService();
-    
-    // Reset mocks
-    vi.clearAllMocks();
+
+    // Reset mocks and queued one-time responses between tests
+    vi.resetAllMocks();
   });
 
   afterEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   // ========================================================================
@@ -124,6 +125,11 @@ describe('MarketplaceSchemaService', () => {
       const schema = await service.fetchAndCacheSchemas('shopee', 'categories');
 
       expect(schema).toBeDefined();
+      expect(schema).not.toBeNull();
+      if (!schema) {
+        throw new Error('Expected schema to be present');
+      }
+
       expect(schema.marketplace).toBe('shopee');
       expect(schema.type).toBe('categories');
       expect(schema.data).toBeDefined();
@@ -551,6 +557,12 @@ describe('MarketplaceSchemaService', () => {
       const shopeeSchema = await service.fetchAndCacheSchemas('shopee', 'categories');
       const mlSchema = await service.fetchAndCacheSchemas('mercadolivre', 'categories');
 
+      expect(shopeeSchema).not.toBeNull();
+      expect(mlSchema).not.toBeNull();
+      if (!shopeeSchema || !mlSchema) {
+        throw new Error('Expected both marketplace schemas to be present');
+      }
+
       expect(shopeeSchema.marketplace).toBe('shopee');
       expect(mlSchema.marketplace).toBe('mercadolivre');
 
@@ -616,6 +628,23 @@ describe('MarketplaceSchemaService', () => {
       // Expiration info should be recent
       const stats = service.getCacheStats();
       expect(stats.hits).toBe(1);
+    });
+  });
+
+  describe('Webhook signature validation', () => {
+    it('should validate Mercado Livre webhook signatures in the common sha256 prefix format', () => {
+      const crypto = require('crypto');
+      const body = JSON.stringify({ resource: '/orders/123', topic: 'orders' });
+      const secret = 'ml-webhook-secret';
+      const signature = `sha256=${crypto.createHmac('sha256', secret).update(body).digest('hex')}`;
+
+      const result = webhookValidatorService.validateMercadoLivreSignature(
+        body,
+        signature,
+        secret,
+      );
+
+      expect(result).toBe(true);
     });
   });
 });

@@ -31,7 +31,7 @@ export function ProductCard({ product }: { product: Product }) {
         />
         {discount && (
           <span className="absolute left-3 top-3 rounded-lg bg-red-500 px-2 py-1 text-xs font-bold text-white">
-            -{discount}%
+            Melhor oferta · -{discount}%
           </span>
         )}
       </Link>

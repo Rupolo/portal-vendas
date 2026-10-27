@@ -16,6 +16,21 @@ export default function CartPage() {
     shopee: items.filter((i) => i.marketplace === "shopee"),
   };
 
+  const handleMarketplaceCheckout = (
+    marketplace: "mercadolivre" | "shopee",
+  ) => {
+    const group = byMarketplace[marketplace];
+    if (group.length === 0) return;
+
+    group.forEach((item) => {
+      const checkoutUrl = item.url || "https://www.google.com";
+      const newWindow = window.open(checkoutUrl, "_blank", "noopener,noreferrer");
+      if (newWindow) newWindow.opener = null;
+    });
+
+    clearCart();
+  };
+
   if (items.length === 0) {
     return (
       <>
@@ -87,7 +102,7 @@ export default function CartPage() {
                         <p className="font-bold text-zinc-900">
                           {formatPrice(item.price)}
                         </p>
-                        <div className="mt-auto flex items-center justify-between">
+                        <div className="mt-auto flex items-center justify-between gap-3">
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
@@ -111,13 +126,25 @@ export default function CartPage() {
                               <Plus className="h-4 w-4" />
                             </button>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => removeItem(item.id)}
-                            className="text-zinc-400 hover:text-red-500"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={item.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                            >
+                              Comprar
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => removeItem(item.id)}
+                              className="text-zinc-400 hover:text-red-500"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -141,26 +168,24 @@ export default function CartPage() {
             </p>
             <div className="mt-6 space-y-3">
               {byMarketplace.mercadolivre.length > 0 && (
-                <a
-                  href="https://www.mercadolivre.com.br/gz/cart"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() => handleMarketplaceCheckout("mercadolivre")}
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 px-4 py-3 font-semibold text-yellow-900 hover:bg-yellow-500"
                 >
                   <ExternalLink className="h-4 w-4" />
                   Finalizar no Mercado Livre
-                </a>
+                </button>
               )}
               {byMarketplace.shopee.length > 0 && (
-                <a
-                  href="https://shopee.com.br/cart"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() => handleMarketplaceCheckout("shopee")}
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-3 font-semibold text-white hover:bg-orange-600"
                 >
                   <ExternalLink className="h-4 w-4" />
                   Finalizar na Shopee
-                </a>
+                </button>
               )}
             </div>
           </aside>

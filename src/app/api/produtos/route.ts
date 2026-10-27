@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchMercadoLivre } from "@/lib/mercadolivre";
 import { searchShopee } from "@/data/shopee-products";
+import { compareProducts, dedupeProducts, filterPetProducts } from "@/lib/products";
 import type { Marketplace, Product } from "@/lib/types";
 
 export async function GET(request: NextRequest) {
@@ -24,12 +25,9 @@ export async function GET(request: NextRequest) {
       results.push(...shopeeResults);
     }
 
-    if (!query.trim() && (!marketplace || marketplace === "all")) {
-      const fallbackProducts = await searchShopee("");
-      results.push(...fallbackProducts);
-    }
+    const products = compareProducts(filterPetProducts(dedupeProducts(results)));
 
-    return NextResponse.json({ products: results, query });
+    return NextResponse.json({ products, query });
   } catch {
     return NextResponse.json(
       { error: "Erro ao buscar produtos" },

@@ -13,7 +13,7 @@
  * @see provider.service.ts
  */
 
-import { PrismaClient } from '@/generated/prisma';
+import { PrismaClient } from '@/generated/prisma/client';
 import { orderRoutingService } from './order-routing.service';
 import { providerService } from './provider.service';
 import { QUEUE_NAMES, getQueue } from '../queue';

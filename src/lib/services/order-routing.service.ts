@@ -24,13 +24,11 @@
  * Effort: 4 hours
  */
 
-import { PrismaClient } from '@/generated/prisma';
+import { prisma } from '../prisma';
 import { config } from '../config';
 import { providerService } from './provider.service';
 import { getQueue, QUEUE_NAMES, addJob } from '../queue';
-import type { Order } from '@/generated/prisma';
-
-const prisma = new PrismaClient();
+import type { Order } from '@/generated/prisma/client';
 
 // ============================================================================
 // TYPES AND INTERFACES
@@ -119,7 +117,7 @@ export class OrderRoutingService {
    */
   async routeOrderToProvider(
     order: Order,
-    options: OrderRoutingOptions = {}
+    options: OrderRoutingOptions
   ): Promise<RoutingResult> {
     const { vendorId, fallbackEnabled = true, preferredProviderId } = options;
 
@@ -402,6 +400,8 @@ export class OrderRoutingService {
     try {
       const queue = getQueue(QUEUE_NAMES.PROVIDER_NOTIFICATION);
 
+      const items = Array.isArray((order as any).items) ? (order as any).items : [];
+
       const job = await queue.add('notify-provider', {
         orderId: order.id,
         providerId,
@@ -414,7 +414,7 @@ export class OrderRoutingService {
         },
         orderDetails: {
           totalPrice: order.totalPrice,
-          itemsCount: order.items.length,
+          itemsCount: items.length,
           marketplace: order.marketplace,
         },
       }, {
@@ -426,7 +426,7 @@ export class OrderRoutingService {
         `[OrderRoutingService] ✓ Created notification job ${job.id} for provider ${providerId}`
       );
 
-      return job.id;
+      return job.id ?? null;
     } catch (error) {
       console.error(
         `[OrderRoutingService] Error creating notification job:`,
@@ -593,7 +593,9 @@ export class OrderRoutingService {
       // Get unique category IDs from order items
       const categoryIds = new Set<string>();
 
-      for (const item of order.items) {
+      const orderItems = Array.isArray((order as any).items) ? (order as any).items : [];
+
+      for (const item of orderItems) {
         if (item.productId) {
           const product = await prisma.product.findUnique({
             where: { id: item.productId },
@@ -685,11 +687,17 @@ export class OrderRoutingService {
     data?: Partial<ProviderAssignment>
   ): Promise<ProviderAssignment | null> {
     try {
+      const sanitizedData: Record<string, unknown> = { ...(data ?? {}) };
+      if (sanitizedData.trackingNumber === undefined) delete sanitizedData.trackingNumber;
+      if (sanitizedData.providerResponse === undefined) delete sanitizedData.providerResponse;
+      if (sanitizedData.failureReason === undefined) delete sanitizedData.failureReason;
+      if (sanitizedData.lastRetryAt === undefined) delete sanitizedData.lastRetryAt;
+
       const assignment = await prisma.orderProviderAssignment.update({
         where: { id: assignmentId },
         data: {
           status,
-          ...data,
+          ...sanitizedData,
           updatedAt: new Date(),
         },
       });

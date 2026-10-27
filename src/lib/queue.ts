@@ -52,7 +52,7 @@ import { config } from './config';
 // REDIS CONNECTION CONFIGURATION
 // ============================================================================
 
-const redisConnection = {
+export const redisConnection = {
   host: config.redis.host,
   port: config.redis.port,
   password: config.redis.password,

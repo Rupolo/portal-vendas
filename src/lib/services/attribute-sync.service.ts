@@ -70,7 +70,7 @@ export interface AttributeValue {
  * Attribute sync options
  */
 export interface AttributeSyncOptions {
-  marketplace: 'shopee' | 'mercadolivre';
+  marketplace?: 'shopee' | 'mercadolivre';
   allowManualOverride?: boolean;
   useFallbacks?: boolean;
   customMappings?: Record<string, string>;

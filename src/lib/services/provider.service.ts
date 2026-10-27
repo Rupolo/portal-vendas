@@ -253,6 +253,59 @@ export class ProviderService {
     };
   }
 
+  async getProviderCredentials(providerId: string): Promise<ProviderCredential | null> {
+    const record = await prisma.providerCredential.findUnique({
+      where: { providerId },
+    });
+
+    if (!record) {
+      return null;
+    }
+
+    return {
+      id: record.id,
+      providerId: record.providerId,
+      apiKey: decryptData(
+        record.encryptedApiKey,
+        record.apiKeyIv,
+        record.apiKeySalt,
+        record.apiKeyAuthTag,
+      ),
+      secret:
+        record.encryptedSecret && record.secretIv && record.secretSalt && record.secretAuthTag
+          ? decryptData(
+              record.encryptedSecret,
+              record.secretIv,
+              record.secretSalt,
+              record.secretAuthTag,
+            )
+          : undefined,
+      endpointUrl: record.endpointUrl,
+      webhookUrl: record.webhookUrl ?? undefined,
+      isActive: record.isActive,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    };
+  }
+
+  async validateProviderAvailability(providerId: string): Promise<boolean> {
+    const provider = await prisma.provider.findUnique({
+      where: { id: providerId },
+      select: { isActive: true, isAvailable: true },
+    });
+
+    return Boolean(provider?.isActive && provider?.isAvailable);
+  }
+
+  async toggleAvailability(providerId: string, isAvailable: boolean): Promise<boolean> {
+    const provider = await prisma.provider.update({
+      where: { id: providerId },
+      data: { isAvailable },
+    });
+
+    return Boolean(provider.isAvailable);
+  }
+
   async updateMarketplaceConfig(
     vendorId: string,
     marketplace: MarketplaceType,

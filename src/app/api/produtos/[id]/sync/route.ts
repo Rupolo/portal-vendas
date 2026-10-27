@@ -24,23 +24,21 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { getQueue, QUEUE_NAMES, addJob } from '@/lib/queue';
 import { productSyncService } from '@/lib/services/product-sync.service';
 import type { Marketplace } from '@/lib/types/marketplace.types';
 import { config } from '@/lib/config';
-
-const prisma = new PrismaClient();
 
 /**
  * POST: Trigger product sync to marketplaces
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const productId = params.id;
+    const { id: productId } = await params;
     const body = await request.json();
     const { marketplaces, force = false } = body;
 
@@ -61,14 +59,14 @@ export async function POST(
     }
 
     // Get configured marketplaces if none specified
-    const targetMarketplaces: Marketplace[] = marketplaces
-      ? (marketplaces as Marketplace[])
-      : ['shopee', 'mercadolivre'];
+    const validMarketplaces = ['shopee', 'mercadolivre'] as const;
+    const targetMarketplaces = (marketplaces && Array.isArray(marketplaces)
+      ? marketplaces
+      : validMarketplaces) as string[];
 
     // Validate marketplaces
-    const validMarketplaces = ['shopee', 'mercadolivre'];
     for (const mp of targetMarketplaces) {
-      if (!validMarketplaces.includes(mp)) {
+      if (!validMarketplaces.includes(mp as typeof validMarketplaces[number])) {
         return NextResponse.json(
           { error: `Invalid marketplace: ${mp}` },
           { status: 400 }
@@ -133,10 +131,10 @@ export async function POST(
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const productId = params.id;
+    const { id: productId } = await params;
 
     // Get all marketplace products for this product
     const marketplaceProducts = await prisma.marketplaceProduct.findMany({

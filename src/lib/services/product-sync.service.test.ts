@@ -20,7 +20,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { productSyncService, ProductSyncService } from './product-sync.service';
 import * as cacheModule from '../cache';
 import * as queueModule from '../queue';
-import * as prismaModule from '../../generated/prisma';
+import * as prismaModule from '../../generated/prisma/client';
 import type { PortalProduct } from '../types/product.types';
 
 // ============================================================================
@@ -28,7 +28,7 @@ import type { PortalProduct } from '../types/product.types';
 // ============================================================================
 
 // Set up Prisma mock first (before any imports)
-vi.mock('../../generated/prisma', () => {
+vi.mock('../../generated/prisma/client', () => {
   const mockPrismaClient = {
     marketplaceProduct: {
       findFirst: vi.fn(),

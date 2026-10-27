@@ -20,12 +20,11 @@
  * Effort: 2 hours
  */
 
-import { PrismaClient } from '@/generated/prisma';
+import { Worker } from 'bullmq';
+import type { Job, Queue } from 'bullmq';
 import { providerService } from '../services/provider.service';
 import { orderRoutingService } from '../services/order-routing.service';
-import type { Job } from 'bullmq';
-
-const prisma = new PrismaClient();
+import { redisConnection } from '../queue';
 
 // ============================================================================
 // TYPES AND INTERFACES
@@ -222,26 +221,11 @@ export function handleJobFailure(
  * @param queue - BullMQ queue instance
  * @returns Worker instance
  */
-import { Queue, Worker } from 'bullmq';
-import { redisConnection } from '../queue';
-
 export function createProviderNotificationWorker(queue: Queue): Worker {
   return new Worker(queue.name, processProviderNotification, {
     connection: redisConnection as any,
-    concurrency: 10, // Process up to 10 notifications concurrently
+    concurrency: 10,
   });
 }
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
-
-export {
-  processProviderNotification as processor,
-  createProviderNotificationWorker,
-  callProviderAPI,
-  handleJobCompletion,
-  handleJobFailure,
-};
 
 export default processProviderNotification;

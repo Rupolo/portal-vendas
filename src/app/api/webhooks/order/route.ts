@@ -55,9 +55,14 @@ export async function POST(request: NextRequest) {
     const timestamp = request.headers.get('x-shopee-timestamp');
     const signature = request.headers.get('x-shopee-signature') ||
                       request.headers.get('x-mercadolivre-signature') ||
-                      request.headers.get('x-signature') || '';
+                      request.headers.get('x-signature') ||
+                      request.headers.get('x-signature-sha256') ||
+                      '';
 
-    const xSignature = request.headers.get('x-signature-sha256');
+    const xSignature = request.headers.get('x-signature') ||
+                      request.headers.get('x-signature-sha256') ||
+                      request.headers.get('x-mercadolivre-signature') ||
+                      undefined;
 
     // Get webhook secrets from environment
     const webhookSecret = process.env[`${marketplace.toUpperCase()}_WEBHOOK_SECRET`];
@@ -75,9 +80,9 @@ export async function POST(request: NextRequest) {
       marketplace,
       {
         body,
-        signature,
+        signature: marketplace === 'shopee' ? signature : undefined,
         timestamp: timestamp || undefined,
-        xSignature: xSignature || undefined,
+        xSignature: marketplace === 'mercadolivre' ? xSignature || signature : undefined,
       },
       { webhookSecret }
     );

@@ -1,6 +1,6 @@
 import type { Product } from "@/lib/types";
 
-export const shopeeProducts: Product[] = [
+const FallbackShopeeProducts: Product[] = [
   {
     id: "shopee-001",
     title: "Fone de Ouvido Bluetooth TWS Pro — Cancelamento de Ruído",
@@ -81,17 +81,96 @@ export const shopeeProducts: Product[] = [
   },
 ];
 
-export function searchShopee(query: string): Product[] {
-  if (!query.trim()) return shopeeProducts;
+function mapShopeeItem(item: any): Product | null {
+  const basic = item?.item_basic ?? item;
 
-  const term = query.toLowerCase();
-  return shopeeProducts.filter(
-    (p) =>
-      p.title.toLowerCase().includes(term) ||
-      p.category?.toLowerCase().includes(term),
+  if (!basic || !basic.name) {
+    return null;
+  }
+
+  const price = Number(basic.price ?? basic.price_before_discount ?? 0) / 100000;
+  const originalPrice = basic.price_before_discount
+    ? Number(basic.price_before_discount) / 100000
+    : undefined;
+
+  const image =
+    basic.image ??
+    basic.images?.[0]?.url ??
+    "https://placehold.co/400x400/f97316/ffffff?text=Shopee";
+
+  const itemId = basic.itemid ?? basic.item_id ?? basic.id ?? crypto?.randomUUID?.() ?? "shopee-item";
+  const shopId = basic.shopid ?? basic.shop_id ?? "0";
+  const slug = basic.shopid ? basic.name?.toLowerCase().replace(/[^a-z0-9]+/g, "-") : "product";
+
+  return {
+    id: `shopee-${itemId}`,
+    title: basic.name,
+    price: Number.isFinite(price) ? price : 0,
+    originalPrice: originalPrice && originalPrice > price ? originalPrice : undefined,
+    image,
+    marketplace: "shopee",
+    url: `https://shopee.com.br/${slug}-i.${shopId}.${itemId}`,
+    freeShipping: Boolean(basic.shipping_fee ?? basic.free_shipping ?? false),
+    rating: basic.item_rating?.rating_star ?? basic.rating_star,
+    soldCount: Number(basic.historical_sold ?? basic.sold ?? 0),
+    category: basic.category ?? "Shopee",
+  };
+}
+
+export async function searchShopee(query: string): Promise<Product[]> {
+  const term = query.trim();
+
+  try {
+    if (term) {
+      const url = new URL("https://shopee.com.br/api/v4/search/search_items");
+      url.searchParams.set("by", "relevancy");
+      url.searchParams.set("keyword", term);
+      url.searchParams.set("limit", "10");
+      url.searchParams.set("newest", "0");
+      url.searchParams.set("order", "desc");
+      url.searchParams.set("skip_autocorrect", "1");
+
+      const response = await fetch(url.toString(), {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+          "Referer": "https://shopee.com.br/",
+          "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+        },
+        next: { revalidate: 300 },
+      });
+
+      if (response.ok) {
+        const payload = await response.json();
+        const rawItems = Array.isArray(payload?.items) ? payload.items : [];
+        const mapped = rawItems
+          .map((item: any) => mapShopeeItem(item))
+          .filter((item: Product | null): item is Product => Boolean(item));
+
+        if (mapped.length > 0) {
+          return mapped;
+        }
+      }
+    }
+  } catch {
+    // Silent fallback to the curated catalog below when the public Shopee API blocks requests.
+  }
+
+  if (!term) {
+    return FallbackShopeeProducts;
+  }
+
+  const normalized = term.toLowerCase();
+  return FallbackShopeeProducts.filter(
+    (item) =>
+      item.title.toLowerCase().includes(normalized) ||
+      item.category?.toLowerCase().includes(normalized),
   );
 }
 
 export function getShopeeProduct(id: string): Product | undefined {
-  return shopeeProducts.find((p) => p.id === id);
+  const product = FallbackShopeeProducts.find((item) => item.id === id);
+  return product ?? undefined;
 }
+
+export const shopeeProducts = FallbackShopeeProducts;

@@ -53,6 +53,7 @@
  */
 
 import { PrismaClient as BasePrismaClient, type Prisma } from '../generated/prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { config } from './config';
 
 // ============================================================================
@@ -88,16 +89,18 @@ declare global {
  * @returns Instância singleton do Prisma Client
  */
 function getPrismaClient(): PrismaClient {
-  // Em produção, criar nova instância a cada chamada é aceitável
-  // pois o Node.js mantém a conexão viva durante o lifetime da aplicação
+  const adapter = new PrismaPg({ connectionString: config.database.url });
+  const prismaOptions = {
+    adapter,
+    log: config.app.isProduction ? [] : ['error', 'warn'],
+  };
+
   if (config.app.isProduction) {
-    return new (BasePrismaClient as any)() as PrismaClient;
+    return new (BasePrismaClient as any)(prismaOptions) as PrismaClient;
   }
 
-  // Em desenvolvimento, reutilizar instância para evitar múltiplas conexões
-  // durante hot reloads do Next.js
   if (!global.prisma) {
-    global.prisma = new (BasePrismaClient as any)() as PrismaClient;
+    global.prisma = new (BasePrismaClient as any)(prismaOptions) as PrismaClient;
     console.log('✅ Prisma Client initialized (singleton pattern - development mode)');
   }
 

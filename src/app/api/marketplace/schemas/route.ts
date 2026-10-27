@@ -126,6 +126,11 @@ export async function GET(request: NextRequest): Promise<NextResponse<SchemasRes
           // Cache miss, fetch from API
           console.log(`[Schemas API] Cache miss for ${marketplace} ${type}, fetching from API...`);
           schema = await marketplaceSchemaService.fetchAndCacheSchemas(marketplace, type);
+
+          if (!schema) {
+            throw new Error('Failed to retrieve schema');
+          }
+
           source = 'api';
           cacheInfo = {
             isCached: true,

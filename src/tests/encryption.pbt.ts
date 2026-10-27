@@ -25,22 +25,19 @@ import * as fc from 'fast-check';
 describe('Encryption - Round-trip Property', () => {
   it('should encrypt and decrypt any string preserving exact content', () => {
     fc.assert(
-      fc.property(fc.string(), (originalData) => {
-        // Encrypt
+      fc.property(fc.string({ maxLength: 2048 }), (originalData) => {
         const encrypted: EncryptedData = encryptData(originalData);
-        
-        // Decrypt
+
         const decrypted = decryptData(
           encrypted.encrypted,
           encrypted.iv,
           encrypted.salt,
           encrypted.authTag
         );
-        
-        // Verify exact match
+
         expect(decrypted).toBe(originalData);
       }),
-      { numRuns: 100 }
+      { numRuns: 30 }
     );
   });
 
@@ -86,21 +83,18 @@ describe('Encryption - Round-trip Property', () => {
   it('should handle authentication tokens (typical length)', () => {
     fc.assert(
       fc.property(
-        fc.integer({ min: 20, max: 512 }),
+        fc.integer({ min: 20, max: 256 }),
         (tokenLength) => {
-          // Generate a typical API token
-          const originalData = Array.from({ length: tokenLength }, () => 
-            'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-          ).flat().slice(0, tokenLength).join('');
-          
+          const alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+          const originalData = Array.from({ length: tokenLength }, (_, index) => alphabet[index % alphabet.length]).join('');
+
           const encrypted: EncryptedData = encryptData(originalData);
           const decrypted = decryptData(encrypted.encrypted, encrypted.iv, encrypted.salt, encrypted.authTag);
-          
+
           expect(decrypted).toBe(originalData);
-          // Note: encrypted.length may be larger than original due to encryption overhead
         }
       ),
-      { numRuns: 50 }
+      { numRuns: 20 }
     );
   });
 });

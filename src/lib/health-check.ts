@@ -16,6 +16,7 @@
 import { redis } from './redis';
 import { checkRedisHealth, getAllQueueStats } from './queue';
 import { validateBackoffConfig } from './backoff';
+import { prisma } from './prisma';
 
 /**
  * Health check status levels
@@ -87,7 +88,6 @@ async function checkRedisComponent(): Promise<ComponentHealth> {
  */
 async function checkDatabaseComponent(): Promise<ComponentHealth> {
   try {
-    // Check if DATABASE_URL is configured
     const databaseUrl = process.env.DATABASE_URL;
 
     if (!databaseUrl) {
@@ -99,13 +99,16 @@ async function checkDatabaseComponent(): Promise<ComponentHealth> {
       };
     }
 
+    const result = await prisma.$queryRaw<Array<{ one: number }>>`SELECT 1 AS one`;
+
     return {
       name: 'Database',
       status: HealthStatus.HEALTHY,
+      message: 'PostgreSQL connection successful',
       details: {
         configured: true,
-        // Don't expose full URL in logs for security
         host: new URL(databaseUrl).hostname,
+        result: result[0]?.one ?? 1,
       },
       lastChecked: new Date(),
     };

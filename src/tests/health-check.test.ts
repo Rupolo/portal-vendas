@@ -13,7 +13,7 @@
  * - Requisito 12: "Performance e escalabilidade"
  */
 
-import { describe, it, expect, beforeEach, vi } from '@jest/globals';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { performHealthCheck, HealthStatus, logHealthReport } from '@/lib/health-check';
 import { checkRedisHealth } from '@/lib/queue';
 

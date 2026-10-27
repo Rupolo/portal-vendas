@@ -13,7 +13,7 @@
  * - Requisito 6, AC4: "implementar retry automático com backoff"
  */
 
-import { describe, it, expect, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   calculateBackoff,
   getBackoffForQueue,

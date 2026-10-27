@@ -204,10 +204,14 @@ export async function getCachedOrder(orderId: string): Promise<any | null> {
  */
 export async function batchGet<T = any>(keys: string[]): Promise<Map<string, T | null>> {
   try {
+    const result = new Map<string, T | null>();
+
+    if (!keys.length) {
+      return result;
+    }
+
     const client = getRedisClient();
     const values = await client.mGet(keys);
-
-    const result = new Map<string, T | null>();
 
     keys.forEach((key, index) => {
       const value = values[index];

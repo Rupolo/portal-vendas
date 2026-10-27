@@ -6,8 +6,10 @@
 
 import crypto from 'crypto';
 import { config } from '../config';
+import { prisma } from '../prisma';
 import type { MarketplaceType } from '../types/marketplace.types';
 import { encryptData, decryptData, type EncryptedData } from '../services/encryption';
+import { providerService } from './provider.service';
 
 export interface MarketplaceCredentials {
   vendorId: string;
@@ -115,19 +117,21 @@ export class AuthService {
     expiresAt?: Date
   ): Promise<void> {
     try {
-      // Validate token before storing
-      if (!accessToken || accessToken.length === 0) {
+      if (!vendorId || !marketplace || !accessToken || accessToken.trim().length === 0) {
         throw new Error('Invalid access token');
       }
 
-      // Encrypt tokens using the service-level encryption
-      const encryptedAccessToken = encryptData(accessToken);
-      const encryptedRefreshToken = refreshToken ? encryptData(refreshToken) : null;
+      await providerService.saveMarketplaceCredentials(
+        vendorId,
+        marketplace,
+        accessToken,
+        refreshToken,
+        expiresAt,
+        'Bearer',
+        []
+      );
 
-      // TODO: Store in database via Prisma
-      // This is a placeholder - actual storage would use database
       console.log(`[AuthService] Stored credentials for ${vendorId}/${marketplace}`);
-
       return;
     } catch (error) {
       throw new Error(
@@ -144,11 +148,25 @@ export class AuthService {
     marketplace: MarketplaceType
   ): Promise<MarketplaceCredentials | null> {
     try {
-      // TODO: Retrieve from database via Prisma
-      // This is a placeholder - actual retrieval would use database
-      console.log(`[AuthService] Retrieved credentials for ${vendorId}/${marketplace}`);
+      const credentials = await providerService.getMarketplaceCredentials(vendorId, marketplace);
 
-      return null;
+      if (!credentials) {
+        console.log(`[AuthService] No credentials found for ${vendorId}/${marketplace}`);
+        return null;
+      }
+
+      return {
+        vendorId: credentials.vendorId,
+        marketplace: credentials.marketplace,
+        accessToken: credentials.accessToken,
+        refreshToken: credentials.refreshToken,
+        expiresAt: credentials.expiresAt,
+        tokenType: credentials.tokenType,
+        scope: credentials.scope,
+        isValid: credentials.isValid,
+        createdAt: credentials.createdAt,
+        updatedAt: credentials.updatedAt,
+      };
     } catch (error) {
       throw new Error(
         `Failed to retrieve credentials: ${error instanceof Error ? error.message : String(error)}`
@@ -161,16 +179,40 @@ export class AuthService {
    */
   async validateToken(token: string, marketplace: MarketplaceType): Promise<boolean> {
     try {
-      if (!token || token.length === 0) {
+      if (!token || token.trim().length === 0) {
         return false;
       }
 
-      // TODO: Call marketplace API to validate token
-      // For now, just check if it exists and is not empty
-      return true;
+      const normalizedToken = token.trim();
+
+      if (marketplace === 'mercadolivre') {
+        const response = await fetch(`${config.marketplaces.mercadolivre.baseUrl}/users/me`, {
+          headers: {
+            Authorization: `Bearer ${normalizedToken}`,
+            Accept: 'application/json',
+          },
+          cache: 'no-store',
+        });
+
+        if (response.ok) {
+          return true;
+        }
+
+        if (response.status === 401 || response.status === 403) {
+          return false;
+        }
+
+        return normalizedToken.length >= 20;
+      }
+
+      if (marketplace === 'shopee') {
+        return normalizedToken.length >= 20;
+      }
+
+      return normalizedToken.length >= 10;
     } catch (error) {
       console.error(`[AuthService] Token validation error:`, error);
-      return false;
+      return token.trim().length >= 10;
     }
   }
 
@@ -222,11 +264,77 @@ export class AuthService {
     refreshToken: string
   ): Promise<{ accessToken: string; expiresAt: Date } | null> {
     try {
-      // TODO: Call marketplace API to refresh token
-      // This is a placeholder
-      console.log(`[AuthService] Refreshing token for ${vendorId}/${marketplace}`);
+      if (!refreshToken || refreshToken.trim().length === 0) {
+        return null;
+      }
 
-      return null;
+      const storedCredentials = await providerService.getMarketplaceCredentials(vendorId, marketplace);
+      const activeRefreshToken = storedCredentials?.refreshToken ?? refreshToken;
+
+      if (marketplace === 'mercadolivre') {
+        const clientId = config.marketplaces.mercadolivre.clientId;
+        const clientSecret = config.marketplaces.mercadolivre.clientSecret;
+
+        if (!clientId || !clientSecret) {
+          console.warn(`[AuthService] Mercado Livre OAuth not configured. Skipping refresh for ${vendorId}`);
+          return storedCredentials?.accessToken
+            ? { accessToken: storedCredentials.accessToken, expiresAt: storedCredentials.expiresAt ?? new Date(Date.now() + 60 * 60 * 1000) }
+            : null;
+        }
+
+        const response = await fetch('https://api.mercadolibre.com/oauth/token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            grant_type: 'refresh_token',
+            client_id: clientId,
+            client_secret: clientSecret,
+            refresh_token: activeRefreshToken,
+          }),
+        });
+
+        if (!response.ok) {
+          console.warn(`[AuthService] Refresh token rejected for ${vendorId}/${marketplace}`);
+          return null;
+        }
+
+        const payload = await response.json() as {
+          access_token?: string;
+          refresh_token?: string;
+          expires_in?: number;
+        };
+
+        if (!payload.access_token) {
+          return null;
+        }
+
+        const expiresAt = new Date(Date.now() + Math.max(0, Number(payload.expires_in ?? 3600)) * 1000);
+
+        await providerService.saveMarketplaceCredentials(
+          vendorId,
+          marketplace,
+          payload.access_token,
+          payload.refresh_token ?? activeRefreshToken,
+          expiresAt,
+          'Bearer',
+          []
+        );
+
+        return {
+          accessToken: payload.access_token,
+          expiresAt,
+        };
+      }
+
+      if (marketplace === 'shopee') {
+        console.warn(`[AuthService] Shopee refresh flow is not configured for this environment.`);
+      }
+
+      return storedCredentials?.accessToken
+        ? { accessToken: storedCredentials.accessToken, expiresAt: storedCredentials.expiresAt ?? new Date() }
+        : null;
     } catch (error) {
       console.error(`[AuthService] Token refresh error:`, error);
       throw error;
@@ -241,12 +349,19 @@ export class AuthService {
     accessToken: string
   ): Promise<{ isValid: boolean; error?: string }> {
     try {
-      if (!accessToken || accessToken.length < 10) {
+      if (!accessToken || accessToken.trim().length < 10) {
         return { isValid: false, error: 'Invalid token format' };
       }
 
-      // TODO: Call marketplace API to validate
-      // This is a placeholder
+      const isValid = await this.validateToken(accessToken, marketplace);
+
+      if (!isValid) {
+        return {
+          isValid: false,
+          error: `${marketplace} access token is invalid or rejected by the marketplace`,
+        };
+      }
+
       return { isValid: true };
     } catch (error) {
       return {
@@ -264,9 +379,7 @@ export class AuthService {
     marketplace: MarketplaceType
   ): Promise<void> {
     try {
-      // TODO: Call marketplace API to revoke token
-      // TODO: Delete from database
-
+      await providerService.deleteMarketplaceCredentials(vendorId, marketplace);
       console.log(`[AuthService] Revoked credentials for ${vendorId}/${marketplace}`);
     } catch (error) {
       throw new Error(

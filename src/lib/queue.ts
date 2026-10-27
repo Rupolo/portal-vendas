@@ -52,7 +52,7 @@ import { config } from './config';
 // REDIS CONNECTION CONFIGURATION
 // ============================================================================
 
-const redisConnection = {
+export const redisConnection = {
   host: config.redis.host,
   port: config.redis.port,
   password: config.redis.password,
@@ -76,6 +76,8 @@ export const QUEUE_NAMES = {
   INVENTORY_SYNC: 'inventorySync',
   ORDER_SYNC: 'orderSync',
   WEBHOOK_PROCESSING: 'webhookProcessing',
+  ORDER_ROUTING: 'orderRouting',
+  PROVIDER_NOTIFICATION: 'providerNotification',
   ERROR_RECOVERY: 'errorRecovery',
 } as const;
 
@@ -472,7 +474,11 @@ export async function checkRedisHealth(): Promise<boolean> {
 export async function getAllQueueStats(): Promise<Map<QueueName, Record<string, any>>> {
   const stats = new Map<QueueName, Record<string, any>>();
 
-  for (const [name, queue] of queueInstances.entries()) {
+  const configuredQueues = Object.keys(config.queues) as QueueName[];
+
+  for (const name of configuredQueues) {
+    const queue = getQueue(name);
+
     try {
       const counts = await queue.getJobCounts();
       const size = await queue.count();

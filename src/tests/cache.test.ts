@@ -13,7 +13,8 @@
  * - Requisito 12: "Performance e Escalabilidade"
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { createClient } from 'redis';
 import {
   getCached,
   setCached,
@@ -70,6 +71,34 @@ const mockSchema = {
 };
 
 describe('Cache Layer', () => {
+  beforeEach(async () => {
+    const client = createClient({
+      socket: {
+        host: config.redis.host,
+        port: config.redis.port,
+      },
+      password: config.redis.password || undefined,
+    });
+
+    await client.connect();
+    await client.flushAll();
+    await client.disconnect();
+  });
+
+  afterEach(async () => {
+    const client = createClient({
+      socket: {
+        host: config.redis.host,
+        port: config.redis.port,
+      },
+      password: config.redis.password || undefined,
+    });
+
+    await client.connect();
+    await client.flushAll();
+    await client.disconnect();
+  });
+
   describe('Basic Cache Operations', () => {
     it('should cache and retrieve a value', async () => {
       const key = 'test:key1';

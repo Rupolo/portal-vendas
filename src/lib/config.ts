@@ -268,7 +268,7 @@ export const config = {
   // NOTIFICAÇÕES
   // ========================================================================
   notifications: {
-    adminEmail: process.env.ADMIN_EMAIL || 'admin@portal-vendas.com',
+    adminEmail: process.env.ADMIN_EMAIL || 'admin@petsonline.com',
     enableEmailAlerts: process.env.NODE_ENV === 'production',
     alertThresholds: {
       // Alertar quando falhas consecutivas > N

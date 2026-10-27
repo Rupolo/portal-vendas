@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Portal Vendas — Mercado Livre + Shopee",
+  title: "Meu Pet Store — Mercado Livre + Shopee",
   description:
     "Encontre e compare produtos do Mercado Livre e Shopee em um só lugar.",
 };

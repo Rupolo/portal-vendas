@@ -55,7 +55,7 @@ export default function Home() {
       </main>
       <footer className="border-t border-zinc-200 bg-white py-8">
         <div className="mx-auto max-w-7xl px-4 text-center text-sm text-zinc-500 sm:px-6">
-          PetCompare — comparação inteligente de preços para produtos de pets.
+          Meu Pet Store — Tudo para seu melhor amigo.
         </div>
       </footer>
     </>

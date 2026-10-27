@@ -10,15 +10,21 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-zinc-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white">
-            <Store className="h-5 w-5" />
+        <Link href="/" className="flex items-center gap-3">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-teal-700 bg-gradient-to-br from-orange-200 via-yellow-100 to-orange-100 shadow-sm">
+            <span className="text-2xl" aria-hidden="true">
+              🐾
+            </span>
           </div>
-          <div>
-            <p className="text-lg font-bold leading-tight text-zinc-900">
-              Portal Vendas
+
+          <div className="leading-none">
+            <div className="text-center font-black uppercase tracking-[-0.08em] text-zinc-900">
+              <div className="text-2xl leading-none text-teal-700 sm:text-3xl">Meu Pet</div>
+              <div className="text-2xl leading-none text-orange-500 sm:text-3xl">Store</div>
+            </div>
+            <p className="mt-1 text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+              Tudo para seu melhor amigo
             </p>
-            <p className="text-xs text-zinc-500">ML + Shopee</p>
           </div>
         </Link>
 
